@@ -8,7 +8,7 @@ The mobile app imports types from `@curiox/shared`, never from `server/`.
 ## Conventions
 
 - Base URL: `EXPO_PUBLIC_API_URL` (local: the laptop's IP, port 4000; see the README).
-- **Identity:** every route except `/api/health` needs an `X-Device-Id` header: 8–128 characters from `A-Z a-z 0-9 - _`. The app generates it once (a UUID) and keeps it in AsyncStorage. The user is created on first use.
+- **Identity:** every route except `/api/health` needs an `X-Device-Id` header: 8–128 characters from `A-Z a-z 0-9 - _`. The app generates it once (a UUID) and keeps it in AsyncStorage. The user is created on first use. A signed-in app also sends `Authorization: Bearer <token>`, which wins: the account's user is used on any device (a stale token is ignored and the session shows `account: null`).
 - **Native apps send no `Origin` header**, so CORS never blocks them. `CORS_ORIGIN` only matters for browser clients.
 - **Errors** are always JSON: `{ "error": { "code": string, "message": string, "details"?: any } }`.
 
@@ -115,6 +115,15 @@ Speech-to-text for voice mode (Groq Whisper). The body is the **raw audio file**
 - `200 { "text": "go deeper on black holes" }`. The text can be empty if nothing was said.
 - `503 VOICE_UNAVAILABLE` when the server has no `GROQ_API_KEY` (check `providers.stt` on `/api/health`; the app hides the mic in that case). `502 TRANSCRIBE_FAILED` when Whisper fails, `400` for empty or unsupported audio.
 - Works with `DEMO_MODE=true` too: transcribing the user's own speech is the one Groq call demo mode still makes.
+
+## Accounts and pins (added 10 Oct)
+
+- `POST /api/auth/signup` `{ name, email, password (≥6) }` → 201 `{ token, account, session }`. The device's anonymous user becomes the account, so the reader card, issues and pins made before signing up are kept. A device that already has an account creates a new user. Duplicate email → 400.
+- `POST /api/auth/signin` `{ email, password }` → `{ token, account, session }`; wrong credentials → 401.
+- `GET /api/auth/me` → `{ account: { name, email } | null }`.
+- `POST /api/session` now includes `account`.
+- Pins are saved per user (per account once signed in, per device before): `GET /api/pins` → `{ pins: PinDto[] }`, `PUT /api/pins` (one `PinDto`, upsert) → 204, `DELETE /api/pins/:id` → 204.
+- Tokens are HMAC-signed and valid 90 days; `AUTH_SECRET` must be set in production or they stop working on restart.
 
 ## The zine (added 9 Oct, evening)
 

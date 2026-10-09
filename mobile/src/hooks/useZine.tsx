@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ArtKey, Deck, DeckSummary, TodayResponse } from '@curiox/shared';
 import { ApiError, api } from '../api/client';
+import { useSession } from './useSession';
 import { notifyIssue } from '../lib/notify';
 import { KEYS, getJson, loadStorage, setJson } from '../lib/storage';
 
@@ -59,6 +60,7 @@ export function localDate(d = new Date()): string {
 }
 
 export function ZineProvider({ children }: { children: ReactNode }) {
+  const { session } = useSession();
   const [today, setToday] = useState<TodayResponse | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,24 @@ export function ZineProvider({ children }: { children: ReactNode }) {
       setPins((p) => (p.length ? p : getJson<Pin[]>(KEYS.pins, [])));
     });
   }, []);
+
+  // Pins live on the server (per account, or per device): fetch them whenever the user changes.
+  const userId = session?.userId;
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    api
+      .pins()
+      .then((res) => {
+        if (!alive) return;
+        setPins(res.pins as Pin[]);
+        setJson(KEYS.pins, res.pins);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   const remember = useCallback((list: Deck[]) => {
     setDecks((m) => {
@@ -137,8 +157,10 @@ export function ZineProvider({ children }: { children: ReactNode }) {
 
   const togglePin = useCallback((p: Pin) => {
     setPins((list) => {
-      const next = list.some((x) => x.id === p.id) ? list.filter((x) => x.id !== p.id) : [p, ...list];
+      const had = list.some((x) => x.id === p.id);
+      const next = had ? list.filter((x) => x.id !== p.id) : [p, ...list];
       setJson(KEYS.pins, next);
+      (had ? api.deletePin(p.id) : api.savePin(p)).catch(() => undefined);
       return next;
     });
   }, []);

@@ -4,7 +4,8 @@ import helmet from 'helmet';
 import { DEVICE_ID_HEADER } from '@curiox/shared';
 import type { Env } from './config/env';
 import type { Services } from './services';
-import { deviceSession } from './middleware/session';
+import { randomBytes } from 'node:crypto';
+import { sessionMiddleware } from './middleware/session';
 import { globalLimiter } from './middleware/rateLimit';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { healthRouter } from './routes/health';
@@ -16,10 +17,15 @@ import { chatRouter } from './routes/chat';
 import { conversationsRouter } from './routes/conversations';
 import { learnRouter } from './routes/learn';
 import { voiceRouter } from './routes/voice';
+import { authRouter } from './routes/auth';
+import { pinsRouter } from './routes/pins';
 import { decksRouter, issuesRouter, talkRouter } from './routes/issues';
 
-export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: Services): Express {
+export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SECRET?: string }, services: Services): Express {
   const app = express();
+  const authSecret = env.AUTH_SECRET ?? randomBytes(32).toString('hex');
+  if (!env.AUTH_SECRET && env.NODE_ENV === 'production') console.warn('[auth] AUTH_SECRET is not set: sign-ins will not survive a restart.');
+  const deviceSession = sessionMiddleware(authSecret);
   app.disable('x-powered-by');
   // Render and Vercel sit behind one proxy hop; needed for correct client IPs in rate limiting.
   app.set('trust proxy', 1);
@@ -34,7 +40,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
         }
         cb(new Error(`CORS: origin ${origin} is not allowed`));
       },
-      allowedHeaders: ['Content-Type', DEVICE_ID_HEADER, 'X-Voice-Lang'],
+      allowedHeaders: ['Content-Type', 'Authorization', DEVICE_ID_HEADER, 'X-Voice-Lang'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       maxAge: 86400,
     }),
@@ -49,6 +55,8 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
 
   // Everything below needs an X-Device-Id header.
   app.use('/api/session', deviceSession, sessionRouter());
+  app.use('/api/auth', deviceSession, authRouter(authSecret));
+  app.use('/api/pins', deviceSession, pinsRouter());
   app.use('/api/onboarding', deviceSession, onboardingRouter(services));
   app.use('/api/profile', deviceSession, profileRouter());
   app.use('/api/topics', deviceSession, topicsRouter(services));

@@ -10,7 +10,7 @@ import { YouScreen } from '@/screens/YouScreen';
 
 export default function YouRoute() {
   const router = useRouter();
-  const { session, update } = useSession();
+  const { session, update, signOut } = useSession();
   const { loadToday } = useZine();
   const [reader, setReader] = useState<ReaderCard>(() => (session ? readerFromProfile(session.profile) : blankReader()));
   const [saving, setSaving] = useState(false);
@@ -78,6 +78,12 @@ export default function YouRoute() {
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
       confirming={confirming}
       setConfirming={setConfirming}
+      account={session.account}
+      onSignIn={() => router.push('/auth')}
+      onSignOut={() => {
+        signOut();
+        router.replace('/');
+      }}
     />
   );
 }

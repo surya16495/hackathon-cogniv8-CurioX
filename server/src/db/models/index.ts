@@ -5,3 +5,4 @@ export { SearchCache } from './SearchCache';
 export { DeckModel, toDeck, toDeckSummary, type DeckDoc } from './Deck';
 export { IssueModel, type IssueDoc } from './Issue';
 export { TalkSession, type TalkSessionDoc } from './TalkSession';
+export { PinModel, toPin, type PinDoc } from './Pin';

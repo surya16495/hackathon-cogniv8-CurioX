@@ -86,6 +86,31 @@ export interface OnboardingResponse {
   profile: Profile | null;
 }
 
+// ---------- Accounts ----------
+export interface Account {
+  name: string;
+  email: string;
+}
+
+export const signUpSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60),
+    email: z.string().trim().toLowerCase().email().max(200),
+    password: z.string().min(6).max(200),
+  })
+  .strict();
+export type SignUpRequest = z.infer<typeof signUpSchema>;
+
+export const signInSchema = z.object({ email: z.string().trim().toLowerCase().email().max(200), password: z.string().min(1).max(200) }).strict();
+export type SignInRequest = z.infer<typeof signInSchema>;
+
+/** Returned by sign-up and sign-in: keep `token` and send it as `Authorization: Bearer <token>`. */
+export interface AuthResponse {
+  token: string;
+  account: Account;
+  session: SessionResponse;
+}
+
 // ---------- Session ----------
 export interface SessionResponse {
   userId: string;
@@ -93,6 +118,31 @@ export interface SessionResponse {
   profile: Profile;
   onboarding: OnboardingState;
   isNew: boolean;
+  /** The signed-in account, or null for an anonymous device. */
+  account: Account | null;
+}
+
+// ---------- Pins (saved per account, or per device when anonymous) ----------
+export const pinSchema = z
+  .object({
+    /** The source URL or the video id. */
+    id: z.string().trim().min(1).max(500),
+    kind: z.enum(['article', 'video']),
+    title: z.string().trim().min(1).max(300),
+    site: z.string().trim().max(100).default(''),
+    summary: z.string().trim().max(600).default(''),
+    url: z.string().trim().url().max(2000),
+    videoId: z.string().trim().max(40).optional(),
+    deckId: z.string().trim().max(40),
+    deckNo: z.number().int().min(0),
+    deckTitle: z.string().trim().max(200),
+    /** For a video: the card it sits on. */
+    card: z.number().int().min(0).optional(),
+  })
+  .strict();
+export type PinDto = z.infer<typeof pinSchema>;
+export interface PinsResponse {
+  pins: PinDto[];
 }
 
 export interface ProfileResponse {

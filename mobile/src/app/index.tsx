@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { onboardingDone, useSession } from '@/hooks/useSession';
 import { localDate, useZine, type LastIssue } from '@/hooks/useZine';
-import { KEYS, getJson, loadStorage } from '@/lib/storage';
+import { KEYS, getJson, loadStorage, storage } from '@/lib/storage';
 import { Opening, openingNotice } from '@/screens/Opening';
 import { CantReach, Waking } from '@/screens/Status';
 
@@ -26,8 +26,10 @@ export default function Index() {
   }, [ready, onboarded, loadToday]);
 
   useEffect(() => {
-    if (opened && ready) router.replace(onboarded ? '/home' : '/onboard');
-  }, [opened, ready, onboarded, router]);
+    if (!opened || !ready) return;
+    const needsAuth = !session?.account && !onboarded && !storage.get(KEYS.skippedAuth);
+    router.replace(needsAuth ? '/auth' : onboarded ? '/home' : '/onboard');
+  }, [opened, ready, onboarded, session, router]);
 
   if (phase === 'error') {
     return (

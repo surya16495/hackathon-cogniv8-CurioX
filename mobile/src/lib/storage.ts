@@ -14,6 +14,10 @@ export const KEYS = {
   lastIssue: 'curiox.lastIssue',
   /** Prefix: issues already posted as a notification. */
   notified: 'curiox.notified',
+  /** The account token, sent as Authorization: Bearer. */
+  token: 'curiox.token',
+  /** The reader chose to go on without an account. */
+  skippedAuth: 'curiox.skippedAuth',
 } as const;
 
 export function getJson<T>(key: string, fallback: T): T {

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { READER_KEYS, interestsQuestion, tailorQuestions, type ReaderCard, type ReaderKey } from '@curiox/shared';
+import { READER_KEYS, interestsQuestion, tailorQuestions, type Account, type ReaderCard, type ReaderKey } from '@curiox/shared';
 import { ChipGroup } from '../components/ChipGroup';
 import { ReaderCardView } from '../components/ReaderCard';
 import { Btn, EmptyCard, Ground, IconBtn, T } from '../ui/kit';
@@ -17,6 +17,9 @@ export interface YouProps {
   onBack: () => void;
   confirming: boolean;
   setConfirming: (v: boolean) => void;
+  account: Account | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }
 
 export function YouScreen(p: YouProps) {
@@ -35,7 +38,8 @@ export function YouScreen(p: YouProps) {
           Your reader card
         </T>
         <T v="hint" muted style={{ marginTop: 6, marginBottom: 22 }}>
-          Saved on this device. No login.{p.saving ? ' Saving…' : ''}
+          {p.account ? `Signed in as ${p.account.name || p.account.email}.` : 'Saved on this device.'}
+          {p.saving ? ' Saving…' : ''}
         </T>
         {empty ? (
           <EmptyCard note="nothing saved yet" body="Answer the six questions and CurioX fills this card in." action="Start the six questions" onAction={p.onRedo} />
@@ -62,6 +66,24 @@ export function YouScreen(p: YouProps) {
               <Btn label="Yes, clear it" onPress={p.onClear} />
               <Btn label="Keep it" variant="paper" onPress={() => p.setConfirming(false)} />
             </View>
+          </View>
+        )}
+        <T v="secH" style={{ marginTop: 36, marginBottom: 12 }}>
+          Account
+        </T>
+        {p.account ? (
+          <View style={{ gap: 12 }}>
+            <T v="hint" muted>
+              {p.account.email}. Your reader card, issues and pins follow this account on any phone.
+            </T>
+            <Btn label="Sign out" variant="paper" onPress={p.onSignOut} />
+          </View>
+        ) : (
+          <View style={{ gap: 12 }}>
+            <T v="hint" muted>
+              Make an account to keep your reader card, issues and pins on every phone.
+            </T>
+            <Btn label="Sign in or create an account" onPress={p.onSignIn} />
           </View>
         )}
         <T v="typed" muted style={{ marginTop: 36 }}>

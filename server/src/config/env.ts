@@ -46,6 +46,8 @@ const envSchema = z.object({
       return order.length ? [...new Set(order)] : ['groq', 'gemini'];
     }),
   SEARCH_CACHE_TTL_HOURS: z.coerce.number().positive().default(6),
+  /** Signs account tokens. Unset: a random secret per boot, so tokens stop working on restart. */
+  AUTH_SECRET: optionalKey,
 });
 
 export type Env = z.infer<typeof envSchema>;

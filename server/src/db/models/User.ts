@@ -48,6 +48,10 @@ const onboardingSchema = new Schema(
 const userSchema = new Schema(
   {
     deviceId: { type: String, required: true, unique: true, index: true },
+    /** Set once the device has signed up or signed in. */
+    email: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
+    name: { type: String, default: '' },
+    passwordHash: { type: String, default: '' },
     profile: { type: profileSchema, default: () => ({}) },
     onboarding: { type: onboardingSchema, default: () => ({}) },
     /** The last issue number handed out ("No. 14"); decks from chats and talks take numbers too. */

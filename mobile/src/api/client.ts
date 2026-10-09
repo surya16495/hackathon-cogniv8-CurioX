@@ -3,7 +3,11 @@ import { fetch } from 'expo/fetch';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type {
+  Account,
+  AuthResponse,
   ChatRequest,
+  PinDto,
+  PinsResponse,
   CreateDeckRequest,
   Deck,
   ReaderCard,
@@ -73,7 +77,8 @@ export function deviceId(): string {
 }
 
 function headers(json: boolean, extra: Record<string, string> = {}): Record<string, string> {
-  return { ...(json ? { 'Content-Type': 'application/json' } : {}), 'X-Device-Id': deviceId(), ...extra };
+  const token = storage.get(KEYS.token);
+  return { ...(json ? { 'Content-Type': 'application/json' } : {}), 'X-Device-Id': deviceId(), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra };
 }
 
 async function toApiError(res: { status: number; json: () => Promise<unknown> }): Promise<ApiError> {
@@ -123,6 +128,14 @@ export const api = {
   topics: () => request<SuggestedTopicsResponse>('GET', '/api/topics/suggested'),
   messages: (conversationId: string) => request<MessagesResponse>('GET', `/api/conversations/${encodeURIComponent(conversationId)}/messages`),
   quiz: (body: { conversationId?: string; topic?: string; count?: number }) => request<QuizResponse>('POST', '/api/learn/quiz', body),
+
+  // Accounts and pins.
+  signUp: (body: { name: string; email: string; password: string }) => request<AuthResponse>('POST', '/api/auth/signup', body),
+  signIn: (body: { email: string; password: string }) => request<AuthResponse>('POST', '/api/auth/signin', body),
+  me: () => request<{ account: Account | null }>('GET', '/api/auth/me'),
+  pins: () => request<PinsResponse>('GET', '/api/pins'),
+  savePin: (pin: PinDto) => request<void>('PUT', '/api/pins', pin),
+  deletePin: (id: string) => request<void>('DELETE', `/api/pins/${encodeURIComponent(id)}`),
 
   // The zine: reader card, issues, decks, talk.
   tailor: (interests: string[], signal?: AbortSignal) => request<TailorResponse>('POST', '/api/onboarding/tailor', { interests }, signal),
