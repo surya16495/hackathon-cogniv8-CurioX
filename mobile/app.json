@@ -21,7 +21,10 @@
         "backgroundColor": "#FFB81C"
       },
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -64,6 +67,12 @@
     "experiments": {
       "typedRoutes": true
     },
-    "backgroundColor": "#F4F4F1"
+    "backgroundColor": "#F4F4F1",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "59b4ed97-4083-47eb-8332-6241f4086701"
+      }
+    }
   }
 }
