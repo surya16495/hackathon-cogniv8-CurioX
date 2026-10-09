@@ -130,6 +130,8 @@ export interface Deck {
   topic: string;
   art: ArtKey;
   cards: Card[];
+  /** Two or three spoken sentences: the "summary podcast" at the end of the deck. */
+  summary: string;
   teach: TeachPrompt;
   quiz: DeckQuizQuestion[];
   sources: Source[];

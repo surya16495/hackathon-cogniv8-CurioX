@@ -8,6 +8,7 @@ export interface DeckDraft {
   topic: string;
   art: ArtKey;
   cards: Card[];
+  summary: string;
   teach: TeachPrompt;
   quiz: DeckQuizQuestion[];
 }
@@ -21,6 +22,7 @@ export function demoLead(interests: string[]): DeckDraft {
     title: 'Small AI models, big deal',
     topic: 'Artificial intelligence',
     art: 'robot',
+    summary: 'Most of the AI tools you use every day run on small, fast models rather than the giants in the headlines. Small models reply quicker and cost less, big ones cope better with long, many-step problems, and most apps mix the two.',
     cards: [
       {
         kind: 'hook', title: 'Did you know?', art: 'robot', stickers: ['wow', 'mindblown', 'wow'],
@@ -96,6 +98,7 @@ const simple = (h: string, body: string, art: ArtKey, note = ''): Card => ({ kin
 const STORIES: Record<string, DeckDraft> = {
   'Artificial intelligence': {
     title: 'What is an AI agent?', topic: 'Artificial intelligence', art: 'compass',
+    summary: 'An agent is a model that takes steps on its own: it searches, opens files and runs tools, then decides what to do next. A chatbot gives advice; an agent acts, so check its steps.',
     cards: [
       simple('What is an AI agent?', 'A model that can take steps on its own: search, open a file, run a tool, then decide what to do next.', 'compass'),
       simple('A chatbot answers. An agent acts.', 'Ask a chatbot about flights and it gives advice. Ask an agent and it checks prices, compares dates and comes back with options.', 'plane'),
@@ -109,6 +112,7 @@ const STORIES: Record<string, DeckDraft> = {
   },
   Cricket: {
     title: 'Why captains fear the dew', topic: 'Cricket', art: 'droplet',
+    summary: 'In a night match the ball gets wet, so bowlers lose grip and spinners lose turn. Batting second gets easier, which is why captains who win the toss often bowl first.',
     cards: [
       simple('Why captains fear the dew', 'In a night match the grass gets wet. A wet ball is hard to grip, so bowlers lose control and spinners lose their turn.', 'droplet'),
       simple('So teams chase', 'Batting second gets easier as the ball skids onto the bat. That is why a captain who wins the toss at night often bowls first.', 'cricket'),
@@ -122,6 +126,7 @@ const STORIES: Record<string, DeckDraft> = {
   },
   Space: {
     title: 'Why rockets land themselves now', topic: 'Space', art: 'rocket',
+    summary: 'Boosters used to be thrown away after one flight; now many fly back and land upright to be used again. The booster is the priciest part, so reusing it makes every launch cheaper.',
     cards: [
       simple('Why rockets land themselves now', 'A rocket booster used to be thrown away after one flight. Now many fly back and land upright, ready to be used again.', 'rocket'),
       simple('How it lands', 'The booster flips around, relights its engines to slow down, steers with small fins and puts out legs just before touchdown.', 'zap'),
@@ -135,6 +140,7 @@ const STORIES: Record<string, DeckDraft> = {
   },
   'Personal finance': {
     title: 'The rule of 72', topic: 'Personal finance', art: 'moneybag',
+    summary: 'Divide 72 by the yearly return and you get roughly how many years money takes to double: at eight percent, about nine years. It is a shortcut for comparing options, not a forecast.',
     cards: [
       simple('The rule of 72', 'Want to know how long money takes to double? Divide 72 by the yearly return.', 'moneybag'),
       simple('Try it', 'At 8% a year, 72 ÷ 8 = 9 years. At 12%, about 6 years. At 4%, about 18.', 'target'),

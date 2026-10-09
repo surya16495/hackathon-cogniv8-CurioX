@@ -27,8 +27,9 @@ export function cardSpeech(card: Card): string {
   }
 }
 
-/** The whole deck read straight through, for "Listen". */
-export function deckSpeech(deck: Pick<Deck, 'title' | 'cards'>): string {
+/** The summary podcast: the deck's own summary, or the whole deck read straight through. */
+export function deckSpeech(deck: Pick<Deck, 'title' | 'cards'> & { summary?: string }): string {
+  if (deck.summary?.trim()) return `${deck.title}. ${deck.summary.trim()}`;
   const parts = deck.cards.map((c) => {
     if (c.kind === 'myth') return `Myth or fact? ${c.claim.replace(/[“”"]/g, '')}. It's a ${c.answer}. ${c.explain}`;
     if (c.kind === 'ways') return `${c.question} ${c.ways.map((w) => `${w.label}: ${w.text}`).join(' ')}`;

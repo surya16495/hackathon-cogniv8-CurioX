@@ -35,10 +35,11 @@ const lead = {
   thumbTitle: 'Landing rockets',
 };
 
-const stories = { stories: [{ item: 1, title: 'Dew decides night games', art: 'droplet', sourceIndex: 1, cards: [
-  { h: 'Dew is back', body: 'Night games get wet.', art: 'droplet' },
-  { h: 'Why it matters', body: 'Wet balls skid.', art: 'cricket', note: 'for you: you follow cricket' },
-  { h: 'Watch for', body: 'Towels on the field.', art: 'eyes' },
+const stories = { stories: [{ item: 1, title: 'Dew decides night games', art: 'droplet', sourceIndex: 1, summary: 'Dew makes the ball slippery, so teams chase.', cards: [
+  { kind: 'simple', h: 'Dew is back', body: 'Night games get wet.', art: 'droplet' },
+  { kind: 'myth', claim: 'Dew only matters to spinners', answer: 'myth', explain: 'Seamers lose grip too.' },
+  { kind: 'guess', question: 'How many overs before dew sets in?', min: 1, max: 40, answer: 12, unit: 'overs', explain: 'About twelve.' },
+  { kind: 'simple', h: 'Watch for', body: 'Towels on the field.', art: 'eyes', note: 'for you: you follow cricket' },
 ], teach: { q: 'Why does dew matter? One sentence.', sample: 'A wet ball is hard to grip.', add: 'captains bowl first' }, quiz: [] }] };
 
 /** One fake model that answers each job by its system prompt. */
@@ -138,6 +139,8 @@ describe('GET /api/issues/today', () => {
     expect(issue.lead.cards.every((card: unknown) => cardSchema.safeParse(card).success)).toBe(true);
     expect(issue.stories.map((s: { topic: string }) => s.topic)).toEqual(['Cricket']);
     expect(issue.quiet).toEqual(['Pottery']);
+    expect(issue.lead.summary).toContain('small, fast models');
+    expect(issue.stories[0].summary).toContain('wet');
   });
 
   it('makes the issue once per day and returns the same one after', async () => {
@@ -171,6 +174,10 @@ describe('GET /api/issues/today', () => {
     const { lead: deck, stories: decks, quiet } = res.body.issue;
     expect(deck).toMatchObject({ kind: 'lead', tag: 'today', provider: 'groq', topic: 'Cricket', title: 'Rockets that land themselves' });
     expect(deck.cards.map((card: { kind: string }) => card.kind)).toEqual(['hook', 'what', 'why', 'myth', 'ways', 'vs', 'guess', 'watch']);
+    expect(deck.summary).toMatch(/^That was /); // the fake lead has no summary: a plain fallback
+    expect(decks[0].cards.map((card: { kind: string }) => card.kind)).toEqual(['simple', 'myth', 'guess', 'simple']);
+    expect(decks[0].cards[1].claim).toBe('“Dew only matters to spinners”');
+    expect(decks[0].summary).toBe('Dew makes the ball slippery, so teams chase.');
     expect(deck.cards[1].source).toMatchObject({ url: 'https://news.example/Cricket/1', site: 'news.example' });
     expect(deck.cards[3].claim).toBe('“Reused rockets are less safe”');
     expect(deck.cards[7].video).toMatchObject({ videoId: 'abcDEF12345', title: 'Booster landing explained' });

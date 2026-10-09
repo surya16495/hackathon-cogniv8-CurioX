@@ -98,7 +98,7 @@ function Finale({ deck, next, arrived, listening, onQuiz, onTeach, onSources, on
             {deck.quiz.length > 0 && <Btn label="Take the quiz" icon="quiz" wide onYellow onPress={onQuiz} />}
             <FinRow icon="pen" label="Teach it back" onPress={onTeach} right={<Icon name="chev" size={22} color={paper.ink} />} />
             {deck.sources.length > 0 && <FinRow icon="link" label="Read the sources" onPress={onSources} right={<Icon name="chev" size={22} color={paper.ink} />} />}
-            <FinRow icon="ear" label={listening ? 'Reading aloud. Press to stop.' : 'Listen'} on={listening} onPress={onListen} right={listening ? <Eq /> : undefined} />
+            <FinRow icon="ear" label={listening ? 'Playing the summary. Press to stop.' : 'Summary podcast'} on={listening} onPress={onListen} right={listening ? <Eq /> : undefined} />
             {next && <FinRow icon={null} label={`Next: ${next.title}`} onPress={onNext} right={<Icon name="next" size={22} color={paper.ink} />} />}
           </View>
         </Panel>

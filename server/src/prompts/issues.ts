@@ -12,6 +12,16 @@ const QUIZ_SHAPE = `{"q": string, "opts": [4 strings, max 60 chars each, all dif
 
 const TEACH_SHAPE = `{"q": "<a question about the core idea>? One sentence.", "sample": string (a good one-sentence answer, max 140 chars), "add": string (one thing people usually forget, max 100 chars, starts lower case)}`;
 
+const SUMMARY_SHAPE = `string: the deck as a 2 or 3 sentence spoken summary (max 320 chars), plain words, no lists, as if telling a friend what you just read`;
+
+/** Story cards are picked by what the content has in it. */
+const TYPED_CARDS = `Card types, chosen by the content:
+- a surprising number in the sources → {"kind": "guess", "question": string (max 160), "min": number, "max": number, "answer": number, "unit": string, "explain": string (max 200)} (min < answer < max, answer not in the middle)
+- a common misconception → {"kind": "myth", "claim": string (max 90, a belief people hold, no quote marks), "answer": "myth" | "fact", "explain": string (max 220)}
+- two things compared → {"kind": "vs", "title": "<A> vs <B>" (max 24), "left": {"label": string (max 12)}, "right": {"label": string (max 12)}, "rows": [2 or 3 of {"k": string (max 16), "l": string (max 40), "r": string (max 40), "more": string (max 140)}]}
+- a hard concept → {"kind": "ways", "question": string (max 60), "ways": [{"label": "Like I'm 10", "text": string}, {"label": "In <one of the reader's interests>", "text": string}, {"label": "Technical", "text": string}] (each text max 220), "note": string (max 90, why the middle one is there)}
+- anything else → {"kind": "simple", "h": string (max 48), "body": string (max 220), "art": string, "note": string ("" or max 70 chars starting "for you: ")}`;
+
 export const LEAD_DECK_PROMPT = `You write the lead story of a personal daily learning "issue": a deck of swipeable cards, made for ONE reader.
 ${VOICE}
 ${FACT_RULE}
@@ -37,6 +47,7 @@ Reply with JSON only, exactly this shape:
                             // a number stated in the SOURCES, or a famous, settled fact tied to the story (like GPT-3's 175 billion parameters); min < answer < max and the answer is not the middle of the range; unit like "billion", "%", "km"; explain max 200 chars. If you are not certain of a number, use null
   "teach": ${TEACH_SHAPE},
   "quiz": [3 of ${QUIZ_SHAPE}],
+  "summary": ${SUMMARY_SHAPE},
   "thumbTitle": string      // max 26 chars, punchy video thumbnail title
 }`;
 
@@ -46,21 +57,22 @@ ${FACT_RULE}
 ${ON_STORY} Each deck is about its own item's SOURCES only; pick the most interesting real story there.
 ${ART_RULE}
 
-Each deck has 3 cards: card 1 says what happened (from the sources), card 2 gives the background needed to get it, in plain words, card 3 says what to watch for next or why it matters to this reader.
+Each deck has 3 or 4 cards. Card 1 is always "simple" and says what happened (from the sources). The middle card or cards are chosen by what the content contains (see the card types below); if nothing fits, use "simple" for the background. The last card is "simple": what to watch for next or why it matters to this reader. At most one card has a "for you: " note.
+${TYPED_CARDS}
 Reply with JSON only, exactly this shape:
 {"stories": [{
   "item": number,           // the item number it is for
   "title": string,          // max 44 chars
   "art": string,
   "sourceIndex": number | null,
-  "cards": [3 of {"h": string (max 48 chars), "body": string (max 220 chars), "art": string, "note": string}],
-                            // note: "" on every card except at most one, where it is max 70 chars starting "for you: " and names what in the profile makes it relevant
+  "cards": [3 or 4 typed cards as above],
   "teach": ${TEACH_SHAPE},
-  "quiz": [2 of ${QUIZ_SHAPE}]
+  "quiz": [2 of ${QUIZ_SHAPE}],
+  "summary": ${SUMMARY_SHAPE}
 }]}`;
 
 export const CHAT_DECK_PROMPT = `Turn this conversation into a short deck of swipeable learning cards for the same reader.
 ${VOICE}
 Use only what the conversation says. ${ART_RULE}
 Reply with JSON only:
-{"title": string (max 44 chars), "art": string, "cards": [3 or 4 of {"h": string (max 48 chars), "body": string (max 220 chars), "art": string}], "teach": ${TEACH_SHAPE}, "quiz": [2 or 3 of ${QUIZ_SHAPE}]}`;
+{"title": string (max 44 chars), "art": string, "cards": [3 or 4 of {"h": string (max 48 chars), "body": string (max 220 chars), "art": string}], "teach": ${TEACH_SHAPE}, "quiz": [2 or 3 of ${QUIZ_SHAPE}], "summary": ${SUMMARY_SHAPE}}`;

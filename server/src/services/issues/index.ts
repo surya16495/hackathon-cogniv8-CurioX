@@ -31,6 +31,9 @@ import type { SearchService } from '../search';
 import { userProfile } from '../onboarding/steps';
 import { DEMO_TAG, demoLead, demoStories, type DeckDraft } from './demo';
 
+const summaryOf = (raw: unknown, title: string): string =>
+  typeof raw === 'string' && raw.trim() ? truncate(raw.trim(), 320) : `That was ${truncate(title, 60)}. Swipe back any time to go over it again.`;
+
 export interface IssueServices {
   llm: LlmService;
   search: SearchService;
@@ -151,9 +154,32 @@ export function assembleLead(raw: LooseLead, sources: Source[], video: Video | n
     topic: '',
     art: toArtKey(r.art ?? r.hook?.art),
     cards,
+    summary: summaryOf(r.summary, r.title),
     teach: validTeach(r.teach, r.title),
     quiz: validQuiz(r.quiz, 3),
   };
+}
+
+/** A story card as the model wrote it, given the fixed art the design uses for that card type. */
+function storyCard(c: Record<string, any>, ref: SourceRef | null, index: number, fallbackArt: unknown): unknown {
+  switch (c?.kind) {
+    case 'guess':
+      return { kind: 'guess', ...c, art: 'target', sticker: 'thinking' };
+    case 'myth':
+      return { kind: 'myth', claim: c.claim ? `“${String(c.claim).replace(/^["“”']+|["“”']+$/g, '')}”` : undefined, answer: c.answer, explain: c.explain, sticker: 'monocle' };
+    case 'vs':
+      return { kind: 'vs', title: c.title, left: { label: c.left?.label, art: 'scooter' }, right: { label: c.right?.label, art: 'truck' }, rows: c.rows, art: 'scales', sticker: 'zap' };
+    case 'ways':
+      return {
+        kind: 'ways',
+        question: c.question,
+        ways: Array.isArray(c.ways) ? c.ways.slice(0, 3).map((w: any, i: number) => ({ label: w?.label, text: w?.text, art: w?.art ?? ['child', 'sparkles', 'microscope'][i] })) : undefined,
+        note: c.note ?? '',
+        sticker: 'bulb',
+      };
+    default:
+      return { kind: 'simple', h: c?.h, body: c?.body, art: c?.art ?? fallbackArt, note: c?.note ?? '', source: index === 0 ? ref : null };
+  }
 }
 
 // ---------- story decks ----------
@@ -174,17 +200,15 @@ export function assembleStories(raw: { stories: Record<string, any>[] }, items: 
     const item = items.find((i) => i.item === Number(s.item));
     if (!item || out.some((o) => o.topic === item.topic) || typeof s.title !== 'string' || !s.title.trim()) continue;
     const ref = sourceRef(pickSource(item.sources, s.sourceIndex) ?? item.sources[0]);
-    const cards = validCards(
-      (Array.isArray(s.cards) ? s.cards : []).slice(0, 3).map((c: any, i: number) => ({
-        kind: 'simple', h: c?.h, body: c?.body, art: c?.art, note: c?.note ?? '', source: i === 0 ? ref : null,
-      })),
-    );
+    const raw = (Array.isArray(s.cards) ? s.cards : []).slice(0, 4);
+    const cards = validCards(raw.map((c: any, i: number) => storyCard(c, ref, i, s.art)));
     if (cards.length < 2) continue;
     out.push({
       title: truncate(s.title.trim(), 80),
       topic: item.topic,
       art: toArtKey(s.art ?? (cards[0] as { art?: string }).art),
       cards,
+      summary: summaryOf(s.summary, s.title),
       teach: validTeach(s.teach, s.title),
       quiz: validQuiz(s.quiz, 2),
       sources: item.sources,
@@ -340,7 +364,7 @@ async function nextNumber(userId: unknown): Promise<number> {
 function saveDeck(userId: unknown, no: number, kind: DeckKind, tag: string, d: DeckDraft & { sources?: Source[] }, provider: Provider, date: string | null) {
   return DeckModel.create({
     userId, no, kind, tag, date, provider,
-    title: d.title, topic: d.topic, art: d.art, cards: d.cards, teach: d.teach, quiz: d.quiz, sources: d.sources ?? [],
+    title: d.title, topic: d.topic, art: d.art, cards: d.cards, summary: d.summary, teach: d.teach, quiz: d.quiz, sources: d.sources ?? [],
   });
 }
 
@@ -437,17 +461,17 @@ export async function deckFromConversation(user: UserDoc, conversationId: string
   let draft: DeckDraft & { sources: Source[] };
   const cards = data ? validCards(data.cards.slice(0, 4).map((c: any, i: number) => ({ kind: 'simple', h: c?.h, body: c?.body, art: c?.art, note: '', source: i === 0 ? sourceRef(sources[0]) : null }))) : [];
   if (data && cards.length >= 2) {
-    draft = { title: truncate(data.title, 80), topic: '', art: toArtKey(data.art), cards, teach: validTeach(data.teach, data.title), quiz: validQuiz(data.quiz, 3), sources };
+    draft = { title: truncate(data.title, 80), topic: '', art: toArtKey(data.art), cards, summary: summaryOf(data.summary, data.title), teach: validTeach(data.teach, data.title), quiz: validQuiz(data.quiz, 3), sources };
   } else {
     // No model: cut the last answer into cards, paragraph by paragraph.
     const paras = transcript.split(/\n{2,}/).map((p) => p.replace(/^(CurioX|Learner):\s*/, '').replace(/[*_#>`]/g, '').trim()).filter((p) => p.length > 30);
     draft = {
-      title: truncate(title, 80), topic: '', art: 'speech', sources, quiz: [], teach: fallbackTeach(title),
+      title: truncate(title, 80), topic: '', art: 'speech', sources, quiz: [], teach: fallbackTeach(title), summary: summaryOf(null, title),
       cards: (paras.length ? paras : [transcript]).slice(-3).map((p, i) => ({ kind: 'simple', h: i ? `Part ${i + 1}` : truncate(title, 48), body: truncate(p, 360), art: 'speech', note: '', source: null })),
     };
   }
   if (existing) {
-    existing.set({ title: draft.title, art: draft.art, cards: draft.cards, teach: draft.teach, quiz: draft.quiz, sources: draft.sources, provider: data ? provider : 'demo', messageCount });
+    existing.set({ title: draft.title, art: draft.art, cards: draft.cards, summary: draft.summary, teach: draft.teach, quiz: draft.quiz, sources: draft.sources, provider: data ? provider : 'demo', messageCount });
     return toDeck(await existing.save());
   }
   const no = await nextNumber(user._id);
@@ -462,14 +486,14 @@ export async function deckFromTalkSummary(user: UserDoc, topic: string, keyPoint
   if (!cards.length) return null;
   const title = truncate(topic.charAt(0).toUpperCase() + topic.slice(1), 60);
   const no = await nextNumber(user._id);
-  return toDeck(await saveDeck(user._id, no, 'talk', 'from your talk', { title, topic: '', art: 'speech', cards, quiz: [], teach: fallbackTeach(title) }, 'demo', null));
+  return toDeck(await saveDeck(user._id, no, 'talk', 'from your talk', { title, topic: '', art: 'speech', cards, quiz: [], teach: fallbackTeach(title), summary: summaryOf(keyPoints.slice(0, 2).join(' '), title) }, 'demo', null));
 }
 
 export async function deckFromTalk(user: UserDoc, title: string | undefined, points: { h: string; say: string }[]): Promise<Deck> {
   const cards = validCards(points.map((p) => ({ kind: 'simple', h: p.h, body: p.say, art: 'speech', note: '', source: null })));
   const name = title?.trim() || truncate(points[0]?.h ?? 'Your talk', 60);
   const no = await nextNumber(user._id);
-  const draft: DeckDraft = { title: name, topic: '', art: 'speech', cards, quiz: [], teach: fallbackTeach(name) };
+  const draft: DeckDraft = { title: name, topic: '', art: 'speech', cards, quiz: [], teach: fallbackTeach(name), summary: summaryOf(points.slice(0, 2).map((p) => p.say).join(' '), name) };
   return toDeck(await saveDeck(user._id, no, 'talk', 'from your talk', draft, 'demo', null));
 }
 
