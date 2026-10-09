@@ -89,7 +89,7 @@ export function TabBar({ current, onTab }: { current: TabKey; onTab: (k: TabKey)
             accessibilityState={{ selected: on }}
             accessibilityLabel={t.label}
             onPress={() => onTab(t.key)}
-            style={({ pressed }) => ({ width: 86, height: 58, alignItems: 'center', justifyContent: 'center', gap: t.key === 'talk' ? 5 : 3, marginTop: t.key === 'talk' ? -22 : 0, transform: pressed ? [{ scale: 0.94 }] : undefined })}
+            style={({ pressed }) => ({ width: 86, height: 58, alignItems: 'center', justifyContent: 'center', gap: t.key === 'talk' ? 5 : 3, marginTop: t.key === 'talk' ? -22 : 0, ...(pressed ? { transform: [{ scale: 0.94 }] } : {}) })}
           >
             {t.icon ? <Icon name={t.icon} color={g.onGround} rotate={t.key === 'pins' ? 28 : 0} /> : <MiniBlob wobble={on} />}
             <Text style={[type.tab, { color: g.onGround }]}>{t.label}</Text>

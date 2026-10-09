@@ -76,7 +76,7 @@ export const panelPad: ViewStyle = { paddingVertical: 24, paddingHorizontal: 22 
 /** A torn white strip of paper. */
 export function Strip({ children, style, onPress, rotate, accessibilityLabel, disabled }: { children?: ReactNode; style?: StyleProp<ViewStyle>; onPress?: () => void; rotate?: number; accessibilityLabel?: string; disabled?: boolean }) {
   const g = useGround();
-  const base: ViewStyle = { backgroundColor: g.strip, ...stripCorners, paddingVertical: 12, paddingHorizontal: 14, boxShadow: g.sh, transform: rotate ? [{ rotate: `${rotate}deg` }] : undefined };
+  const base: ViewStyle = { backgroundColor: g.strip, ...stripCorners, paddingVertical: 12, paddingHorizontal: 14, boxShadow: g.sh, ...(rotate ? { transform: [{ rotate: `${rotate}deg` }] } : {}) };
   if (!onPress) return <View style={[base, style]}>{children}</View>;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} disabled={disabled} onPress={onPress} style={({ pressed }) => [base, style, pressed && { transform: [...(rotate ? [{ rotate: `${rotate}deg` }] : []), { scale: 0.985 }] }]}>
@@ -203,7 +203,7 @@ export function IconBtn({ name, onPress, label, color, disabled, size = 24, rota
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => ({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, opacity: disabled ? 0.25 : 1, transform: pressed && !disabled ? [{ scale: 0.92 }] : undefined })}
+      style={({ pressed }) => ({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, opacity: disabled ? 0.25 : 1, ...(pressed && !disabled ? { transform: [{ scale: 0.92 }] } : {}) })}
     >
       <Icon name={name} size={size} color={color ?? g.onGround} rotate={rotate} />
     </Pressable>

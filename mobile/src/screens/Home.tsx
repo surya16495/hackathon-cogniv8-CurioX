@@ -195,7 +195,7 @@ export function Home(p: HomeProps) {
               accessibilityRole="button"
               accessibilityLabel={`Open issue ${issue!.no}: ${lead.title}`}
               onPress={() => p.onOpenDeck(lead.id)}
-              style={({ pressed }) => ({ marginBottom: 28, transform: pressed ? [{ scale: 0.985 }] : undefined })}
+              style={({ pressed }) => ({ marginBottom: 28, ...(pressed ? { transform: [{ scale: 0.985 }] } : {}) })}
             >
               <Panel style={{ minHeight: 236, justifyContent: 'flex-end', gap: 12, paddingTop: 24, paddingHorizontal: 22, paddingBottom: 20 }}>
                 <Cut art={lead.art} size={152} rotate={8} style={{ position: 'absolute', right: -4, top: -26 }} />

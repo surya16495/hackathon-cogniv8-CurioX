@@ -167,7 +167,7 @@ export function AskScreen(p: AskProps) {
           {p.busy ? (
             <IconBtn name="pause" label="Stop the answer" color={paper.ink} onPress={p.onStop} />
           ) : (
-            <Pressable accessibilityRole="button" accessibilityLabel="Send" onPress={send} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: paper.ink, alignItems: 'center', justifyContent: 'center', transform: pressed ? [{ scale: 0.92 }] : undefined })}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Send" onPress={send} style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, backgroundColor: paper.ink, alignItems: 'center', justifyContent: 'center', ...(pressed ? { transform: [{ scale: 0.92 }] } : {}) })}>
               <Icon name="up" size={22} color={paper.white} />
             </Pressable>
           )}

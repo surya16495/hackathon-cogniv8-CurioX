@@ -92,7 +92,7 @@ export function MicButton({ size = 44, style }: { size?: number; style?: ViewSty
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: g.sh,
-          transform: pressed ? [{ scale: 0.92 }] : undefined,
+          ...(pressed ? { transform: [{ scale: 0.92 }] } : {}),
         })}
       >
         {s === 'speaking' ? <Bars /> : <Icon name={off ? 'mic' : s === 'thinking' || s === 'transcribing' ? 'search' : 'mic'} size={size * 0.5} color={paper.ink} />}

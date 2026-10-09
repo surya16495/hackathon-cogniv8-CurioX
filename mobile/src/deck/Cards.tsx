@@ -227,7 +227,7 @@ function SegButton({ label, on, onPress }: { label: string; on: boolean; onPress
         setFresh(true);
         onPress();
       }}
-      style={({ pressed }) => ({ flex: 1, minHeight: 44, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: g.strip, borderTopLeftRadius: 3, borderTopRightRadius: 6, borderBottomRightRadius: 4, borderBottomLeftRadius: 7, boxShadow: g.sh, transform: pressed ? [{ scale: 0.985 }] : undefined })}
+      style={({ pressed }) => ({ flex: 1, minHeight: 44, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: g.strip, borderTopLeftRadius: 3, borderTopRightRadius: 6, borderBottomRightRadius: 4, borderBottomLeftRadius: 7, boxShadow: g.sh, ...(pressed ? { transform: [{ scale: 0.985 }] } : {}) })}
     >
       <Highlight on={on} />
       <Text style={{ fontFamily: fonts.disp700, fontSize: 14.5, lineHeight: 16, color: paper.ink, textAlign: 'center' }}>{label}</Text>
@@ -400,7 +400,7 @@ export function WatchCard({ c, pin }: { c: CardOf<'watch'>; pin?: PinTarget }) {
                     accessibilityRole="button"
                     accessibilityLabel={`Play video: ${c.video.title}`}
                     onPress={() => setPlaying(true)}
-                    style={({ pressed }) => ({ position: 'absolute', left: '50%', top: '50%', marginLeft: -32, marginTop: -32, width: 64, height: 64, borderRadius: 32, backgroundColor: paper.white, alignItems: 'center', justifyContent: 'center', boxShadow: g.shUp, transform: pressed ? [{ scale: 0.94 }] : undefined })}
+                    style={({ pressed }) => ({ position: 'absolute', left: '50%', top: '50%', marginLeft: -32, marginTop: -32, width: 64, height: 64, borderRadius: 32, backgroundColor: paper.white, alignItems: 'center', justifyContent: 'center', boxShadow: g.shUp, ...(pressed ? { transform: [{ scale: 0.94 }] } : {}) })}
                   >
                     <Icon name="play" color={paper.ink} fill />
                   </Pressable>
