@@ -208,6 +208,28 @@ describe('POST /api/chat fallback chain', () => {
   });
 });
 
+describe('provider order and quick calls', () => {
+  it('LLM_CHAT_ORDER=groq,gemini streams from Groq first', async () => {
+    const gemini = fakeProvider({ name: 'gemini', complete: () => noSearch, stream: () => tokens('gemini') });
+    const groq = fakeProvider({ name: 'groq', stream: () => tokens('groq') });
+    const { app } = makeApp({ providers: [gemini, groq], chatOrder: ['groq', 'gemini'], searcher: fakeSearcher([]) });
+    const res = await client(app).post('/api/chat').send({ message: 'Hi', stream: false });
+    expect(res.body.provider).toBe('groq');
+    expect(gemini.streamCalls).toHaveLength(0);
+    expect(gemini.completeCalls).toHaveLength(1); // the router still uses Gemini lite
+  });
+
+  it('the router makes one quick attempt, then uses the heuristic instead of trying Groq', async () => {
+    const gemini = fakeProvider({ name: 'gemini', complete: () => { throw httpError(503); }, stream: () => tokens('ok') });
+    const groq = fakeProvider({ name: 'groq', complete: () => yesSearch('x'), stream: () => tokens('groq') });
+    const searcher = fakeSearcher([{ title: 'A', url: 'https://a.example', snippet: 'a' }]);
+    const { app } = makeApp({ providers: [gemini, groq], searcher });
+    await client(app).post('/api/chat').send({ message: 'Explain gravity', stream: false });
+    expect(groq.completeCalls).toHaveLength(0);
+    expect(searcher.calls).toHaveLength(0); // heuristic: stable concept, no search
+  });
+});
+
 describe('POST /api/chat research', () => {
   const results = [
     { title: 'A', url: 'https://a.example/x', snippet: 'aaa' },

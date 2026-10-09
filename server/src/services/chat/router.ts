@@ -37,7 +37,10 @@ export async function routeMessage(
       system: ROUTER_PROMPT,
       messages: [{ role: 'user', content: `Conversation:\n${recent.join('\n') || '(none)'}\n\nNew message: ${message}` }],
       temperature: 0,
-      maxOutputTokens: 100,
+      maxOutputTokens: 200,
+      // Runs before every answer: if the model is slow, the keyword heuristic decides instead.
+      timeoutMs: 4000,
+      attempts: 1,
       signal: opts.signal,
     },
     decisionSchema,

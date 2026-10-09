@@ -14,6 +14,10 @@ export interface LlmRequest {
   /** Ask the provider for a JSON object. */
   json?: boolean;
   maxOutputTokens?: number;
+  /** Overrides the service timeout for quick calls (router, question phrasing). */
+  timeoutMs?: number;
+  /** Try at most this many providers before using the fallback (quick, optional calls use 1). */
+  attempts?: number;
   signal?: AbortSignal;
 }
 

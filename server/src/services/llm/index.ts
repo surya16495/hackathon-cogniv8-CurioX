@@ -40,6 +40,8 @@ export interface LlmServiceOptions {
   timeoutMs: number;
   /** Delay between demo words; 0 in tests. */
   demoDelayMs?: number;
+  /** Provider order for streamed chat answers. Defaults to the order of `providers`. */
+  chatOrder?: string[];
   log?: (msg: string) => void;
 }
 
@@ -66,7 +68,10 @@ export function createLlmService(opts: LlmServiceOptions): LlmService {
     },
 
     async streamAnswer({ build, demo, onToken, onSwitch, signal }) {
-      const chain = active();
+      const order = opts.chatOrder ?? opts.providers.map((p) => p.name);
+      const chain = active()
+        .filter((p) => order.includes(p.name))
+        .sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
       let emitted = false;
 
       for (let i = 0; i < chain.length; i++) {
@@ -97,12 +102,12 @@ export function createLlmService(opts: LlmServiceOptions): LlmService {
     },
 
     async completeJson(req, schema, fallback) {
-      for (const provider of active()) {
+      for (const provider of active().slice(0, req.attempts ?? Infinity)) {
         const controller = linked(req.signal);
         try {
           const raw = await withTimeout(
             provider.complete({ tier: 'lite', temperature: 0.3, ...req, json: true, signal: controller.signal }),
-            opts.timeoutMs,
+            req.timeoutMs ?? opts.timeoutMs,
             `${provider.name} json`,
           );
           const parsed = schema.safeParse(extractJson(raw));
@@ -118,12 +123,12 @@ export function createLlmService(opts: LlmServiceOptions): LlmService {
     },
 
     async completeText(req, fallback) {
-      for (const provider of active()) {
+      for (const provider of active().slice(0, req.attempts ?? Infinity)) {
         const controller = linked(req.signal);
         try {
           const text = await withTimeout(
             provider.complete({ tier: 'lite', ...req, signal: controller.signal }),
-            opts.timeoutMs,
+            req.timeoutMs ?? opts.timeoutMs,
             `${provider.name} text`,
           );
           if (text.trim()) return { text: text.trim(), provider: provider.name };

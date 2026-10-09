@@ -18,6 +18,9 @@ const envSchema = z.object({
   GEMINI_API_KEY: optionalKey,
   GEMINI_MODEL_MAIN: z.string().trim().min(1).default('gemini-3.8-flash'),
   GEMINI_MODEL_LITE: z.string().trim().min(1).default('gemini-3.5-flash-lite'),
+  // Gemini 3.x thinking level per tier. "" sends nothing (model default). flash-lite supports minimal; 3.8-flash does not.
+  GEMINI_THINKING_MAIN: z.enum(['', 'minimal', 'low', 'medium', 'high']).default('low'),
+  GEMINI_THINKING_LITE: z.enum(['', 'minimal', 'low', 'medium', 'high']).default('minimal'),
   GROQ_API_KEY: optionalKey,
   GROQ_MODEL: z.string().trim().min(1).default('openai/gpt-oss-120b'),
   TAVILY_API_KEY: optionalKey,
@@ -32,6 +35,15 @@ const envSchema = z.object({
     ),
   DEMO_MODE: bool,
   LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30000),
+  // Provider order for streamed chat answers. Gemini first follows the plan; groq first streams much faster.
+  LLM_CHAT_ORDER: z
+    .string()
+    .default('gemini,groq')
+    .transform((v) => {
+      const order = v.split(',').map((s) => s.trim().toLowerCase()).filter((s) => s === 'gemini' || s === 'groq');
+      // A typo must not silently switch every answer to demo mode.
+      return order.length ? [...new Set(order)] : ['gemini', 'groq'];
+    }),
   SEARCH_CACHE_TTL_HOURS: z.coerce.number().positive().default(6),
 });
 

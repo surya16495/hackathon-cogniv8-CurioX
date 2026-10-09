@@ -41,7 +41,7 @@ async function phraseQuestion(step: number, known: OnboardingAnswer[], llm: LlmS
   // The first question is fixed: nothing is known yet and it saves a model call.
   if (step === 0 || !known.some((a) => a.answer.trim())) return def.fallbackQuestion;
   const { text } = await llm.completeText(
-    { system: phraseQuestionPrompt(def, known), messages: [{ role: 'user', content: 'Ask the next question.' }], temperature: 0.8, maxOutputTokens: 120 },
+    { system: phraseQuestionPrompt(def, known), messages: [{ role: 'user', content: 'Ask the next question.' }], temperature: 0.8, maxOutputTokens: 200, timeoutMs: 4000, attempts: 1 },
     () => def.fallbackQuestion,
   );
   const cleaned = text.replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/^CurioX:\s*/i, '');

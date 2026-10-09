@@ -75,6 +75,7 @@ export interface TestAppOptions {
   demoMode?: boolean;
   searcher?: WebSearcher;
   timeoutMs?: number;
+  chatOrder?: string[];
 }
 
 export function makeApp(opts: TestAppOptions = {}): { app: Express; services: Services } {
@@ -86,6 +87,7 @@ export function makeApp(opts: TestAppOptions = {}): { app: Express; services: Se
       demoMode,
       timeoutMs: opts.timeoutMs ?? 2000,
       demoDelayMs: 0,
+      chatOrder: opts.chatOrder,
       log: () => undefined,
     }),
     search: createSearchService({ searcher, demoMode, ttlHours: 6 }),

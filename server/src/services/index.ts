@@ -15,11 +15,18 @@ export interface Services {
 export function buildServices(env: Env): Services {
   const llm = createLlmService({
     providers: [
-      createGeminiProvider({ apiKey: env.GEMINI_API_KEY, modelMain: env.GEMINI_MODEL_MAIN, modelLite: env.GEMINI_MODEL_LITE }),
+      createGeminiProvider({
+        apiKey: env.GEMINI_API_KEY,
+        modelMain: env.GEMINI_MODEL_MAIN,
+        modelLite: env.GEMINI_MODEL_LITE,
+        thinkingMain: env.GEMINI_THINKING_MAIN,
+        thinkingLite: env.GEMINI_THINKING_LITE,
+      }),
       createGroqProvider({ apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL }),
     ],
     demoMode: env.DEMO_MODE,
     timeoutMs: env.LLM_TIMEOUT_MS,
+    chatOrder: env.LLM_CHAT_ORDER,
     demoDelayMs: env.NODE_ENV === 'test' ? 0 : 15,
   });
   const searcher = createTavilySearcher(env.TAVILY_API_KEY);
