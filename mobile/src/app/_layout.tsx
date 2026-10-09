@@ -3,7 +3,7 @@ import { CourierPrime_400Regular, CourierPrime_700Bold } from '@expo-google-font
 import { Gabarito_500Medium, Gabarito_700Bold, Gabarito_800ExtraBold, Gabarito_900Black } from '@expo-google-fonts/gabarito';
 import { ReenieBeanie_400Regular } from '@expo-google-fonts/reenie-beanie';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -11,11 +11,18 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SessionProvider } from '@/hooks/useSession';
 import { ZineProvider } from '@/hooks/useZine';
+import { onNotificationOpen } from '@/lib/notify';
 import { paper, useGround } from '@/ui/tokens';
 import { VoiceOverlay } from '@/voice/VoiceControls';
 import { VoiceProvider } from '@/voice/VoiceProvider';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+function NotificationOpener() {
+  const router = useRouter();
+  useEffect(() => onNotificationOpen((id) => router.push({ pathname: '/deck/[id]', params: { id } })), [router]);
+  return null;
+}
 
 export default function RootLayout() {
   const g = useGround();
@@ -50,6 +57,7 @@ export default function RootLayout() {
               <Stack.Screen name="index" options={{ contentStyle: { backgroundColor: paper.lock }, animation: 'none' }} />
             </Stack>
             <VoiceOverlay />
+            <NotificationOpener />
           </VoiceProvider>
         </ZineProvider>
       </SessionProvider>

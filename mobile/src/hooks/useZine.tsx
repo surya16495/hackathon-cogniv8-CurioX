@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ArtKey, Deck, DeckSummary, TodayResponse } from '@curiox/shared';
 import { ApiError, api } from '../api/client';
+import { notifyIssue } from '../lib/notify';
 import { KEYS, getJson, loadStorage, setJson } from '../lib/storage';
 
 export interface Pin {
@@ -99,6 +100,8 @@ export function ZineProvider({ children }: { children: ReactNode }) {
           setToday(res);
           setJson(KEYS.lastIssue, { no: res.issue.no, date, title: res.issue.lead.title, art: res.issue.lead.art } satisfies LastIssue);
           setStatus('ready');
+          // The top update goes out as a notification, once per issue.
+          void notifyIssue({ key: `${date}:${res.issue.lead.id}`, no: res.issue.no, title: res.issue.lead.title, deckId: res.issue.lead.id });
         } catch (err) {
           setError(err instanceof ApiError ? err.message : 'Could not load today’s issue.');
           setStatus('error');

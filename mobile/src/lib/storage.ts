@@ -12,6 +12,8 @@ export const KEYS = {
   read: 'curiox.read',
   /** JSON: the last issue's number and lead, for the opening notification. */
   lastIssue: 'curiox.lastIssue',
+  /** Prefix: issues already posted as a notification. */
+  notified: 'curiox.notified',
 } as const;
 
 export function getJson<T>(key: string, fallback: T): T {
