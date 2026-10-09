@@ -1,12 +1,12 @@
-# Lumora architecture plan
+# CurioX architecture plan
 
 Oct 9, 2026 · @Surya
 
-Build Lumora as one Express + MongoDB API that serves a React web app installable on phones as a PWA. Use Gemini 3.8 Flash on the free tier, Groq as the fallback model and Tavily for search. A native Expo app on the same API is a stretch goal, not part of the core demo.
+Build CurioX as one Express + MongoDB API that serves a React web app installable on phones as a PWA. Use Gemini 3.8 Flash on the free tier, Groq as the fallback model and Tavily for search. A native Expo app on the same API is a stretch goal, not part of the core demo.
 
 ## Tech stack
 
-MERN is the right call here: a standalone Express API is what lets a web app and a mobile app share one backend. This changes section 7 of the Lumora spec, which names Next.js API routes and Supabase. Update that line so coding agents do not follow the old instruction.
+MERN is the right call here: a standalone Express API is what lets a web app and a mobile app share one backend. This changes section 7 of the CurioX spec, which names Next.js API routes and Supabase. Update that line so coding agents do not follow the old instruction.
 
 | Layer | Choice | Why |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ The dashed box is the stretch mobile app; it uses the same routes as the web app
 2. The API loads the user's profile and the last 10 messages from MongoDB.
 3. A small Flash-Lite call returns JSON: does this need current information, and with what search query?
 4. If yes, the API runs one Tavily basic search for 5 results and keeps each title, URL and snippet. Results are cached by query for 6 hours.
-5. The prompt is assembled from the Lumora persona, the profile summary, the history, the numbered sources and the action instruction.
+5. The prompt is assembled from the CurioX persona, the profile summary, the history, the numbered sources and the action instruction.
 6. Gemini 3.8 Flash streams the answer. The API relays it as SSE events: `status`, `token`, `sources`, `done`, `error`.
 7. On a 429 or 5xx from Gemini, the same prompt goes to Groq. If both fail, the API returns a clearly labelled demo answer.
 8. Both messages, the sources and the provider used are saved.
@@ -100,7 +100,7 @@ Node packages: `@google/genai` for Gemini, `groq-sdk` for Groq, `@tavily/core` f
 - **One quota day covers the whole build.** Gemini's daily count resets at midnight Pacific, which is 12:30 PM IST. Run with `DEMO_MODE=true` while building UI so testing does not burn the quota the demo video needs.
 - **Trim the prompt on fallback.** Groq's 8,000 tokens a minute is tight for research answers. When Groq is serving, send 3 search snippets and the last 4 messages.
 - **Cache Tavily results.** 1,000 credits must cover development, the demo video and judging the following week.
-- **Free Gemini traffic is used to improve Google's products.** That fits the handbook's data rules as long as nobody pastes company or customer information into Lumora.
+- **Free Gemini traffic is used to improve Google's products.** That fits the handbook's data rules as long as nobody pastes company or customer information into CurioX.
 
 ### Considered and not used
 
@@ -117,7 +117,7 @@ Node packages: `@google/genai` for Gemini, `groq-sdk` for Groq, `@tavily/core` f
 One repository with four workspaces: shared types, server, web and mobile. The handbook requires a single common repo named `hackathon-<team-name>-<project-name>` with the final version on `main`.
 
 ```text
-hackathon-<team-name>-lumora/
+hackathon-cogniv8-CurioX/
 ├── README.md                # overview, business case, key features, deployment, team
 ├── .env.example
 ├── package.json             # npm workspaces: packages/*, server, web, mobile
@@ -171,7 +171,7 @@ hackathon-<team-name>-lumora/
 ```
 
 - Routes stay thin and logic lives in `services/`, so any teammate can explain a file in one sentence. The handbook requires that someone can explain how it works.
-- Prompts are files, not strings inside routes. Whoever tunes Lumora's voice never touches route code.
+- Prompts are files, not strings inside routes. Whoever tunes CurioX's voice never touches route code.
 - `web` and `mobile` import only from `packages/shared` and their own `api/client.ts`, never from `server`.
 
 ## Deployment modes
@@ -180,13 +180,13 @@ Three modes share one codebase and differ only in environment variables. Deploy 
 
 | Mode | API | Web | Mobile | Database |
 | --- | --- | --- | --- | --- |
-| Local development | `npm run dev -w server` on port 4000 | Vite dev server on port 5173 | Phone browser on the same Wi-Fi; Expo Go for the stretch app | Atlas M0, `lumora_dev` database |
+| Local development | `npm run dev -w server` on port 4000 | Vite dev server on port 5173 | Phone browser on the same Wi-Fi; Expo Go for the stretch app | Atlas M0, `curiox_dev` database |
 | Demo mode (`DEMO_MODE=true`) | Same server, canned answers and sources labelled as demo, no outside calls | Unchanged | Unchanged | Unchanged |
-| Hosted demo, what judges use | Render free web service, auto-deploy from `main` | Vercel or Netlify static site with `VITE_API_URL` set | PWA installed from the web URL; optional Android APK from EAS Build | Atlas M0, `lumora_prod` database |
+| Hosted demo, what judges use | Render free web service, auto-deploy from `main` | Vercel or Netlify static site with `VITE_API_URL` set | PWA installed from the web URL; optional Android APK from EAS Build | Atlas M0, `curiox_prod` database |
 
 ### Free-tier behaviour to design for
 
-- **Render sleeps.** A [free web service](https://render.com/docs/free) spins down after 15 minutes without traffic and takes about a minute to wake. Have the web app call `/api/health` on load and show a "Waking up Lumora" state, and open the URL a few minutes before any demo.
+- **Render sleeps.** A [free web service](https://render.com/docs/free) spins down after 15 minutes without traffic and takes about a minute to wake. Have the web app call `/api/health` on load and show a "Waking up CurioX" state, and open the URL a few minutes before any demo.
 - **Atlas must accept Render's traffic.** Allow access from anywhere in Atlas network settings and use a long generated password. The database holds only test profiles.
 - **EAS builds queue.** The [Expo free plan](https://expo.dev/pricing) includes 15 Android and 15 iOS builds a month in a low-priority queue that can wait 90 minutes or more, with a 45-minute build timeout. Start the APK build by 8:00 AM Saturday or skip it.
 - **No iOS binary.** An installable iPhone build needs an Apple Developer account, so iPhones use the PWA.
@@ -267,4 +267,4 @@ Free-tier terms change without notice. These pages were read on 9 October 2026; 
 - [OpenRouter limits](https://openrouter.ai/docs/api-reference/limits): free model request caps
 - [Render free instances](https://render.com/docs/free): spin-down and wake time
 - [Expo EAS pricing](https://expo.dev/pricing): free build allowance, queue and timeout
-- Apty Hackathon 2026 Participant Handbook and the Lumora product vision, both attached in chat: dates, deliverables, judging weights and scope
+- Apty Hackathon 2026 Participant Handbook and the CurioX product vision, both attached in chat: dates, deliverables, judging weights and scope
