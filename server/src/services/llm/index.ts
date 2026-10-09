@@ -1,7 +1,7 @@
 // The fallback chain: Gemini, then Groq, then a labelled demo answer.
 // Any provider error (429, 5xx, timeout, bad key) moves to the next provider,
 // because during a live demo any answer beats an error message.
-import type { ZodType } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 import type { Provider } from '@curiox/shared';
 import { describeError } from '../../utils/errors';
 import { withIdleTimeout, withTimeout } from '../../utils/async';
@@ -27,7 +27,8 @@ export interface StreamAnswerResult {
 
 export interface LlmService {
   streamAnswer(opts: StreamAnswerOptions): Promise<StreamAnswerResult>;
-  completeJson<T>(req: LlmRequest, schema: ZodType<T>, fallback: () => T): Promise<{ data: T; provider: Provider }>;
+  /** The schema may transform what the model sent (its input type is not checked). */
+  completeJson<T>(req: LlmRequest, schema: ZodType<T, ZodTypeDef, unknown>, fallback: () => T): Promise<{ data: T; provider: Provider }>;
   completeText(req: LlmRequest, fallback: () => string): Promise<{ text: string; provider: Provider }>;
   configured(): Record<Exclude<Provider, 'demo'>, boolean>;
   readonly demoMode: boolean;

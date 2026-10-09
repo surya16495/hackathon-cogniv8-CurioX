@@ -263,7 +263,16 @@ export function useChatStream() {
     setItems((list) => list.map((it) => (it.kind === 'quiz' && it.id === id ? { ...it, ended: true } : it)));
   }, []);
 
+  /** Show a ready-made exchange without a model call: "Explain that one another way" after a quiz. */
+  const addCanned = useCallback((question: string, answer: string) => {
+    setItems((list) => [
+      ...list,
+      { kind: 'message', id: nextId('u'), role: 'user', content: question, sources: [], action: null, provider: null },
+      { kind: 'message', id: nextId('a'), role: 'assistant', content: answer, sources: [], action: null, provider: null },
+    ]);
+  }, []);
+
   const hasAnswer = items.some((it) => it.kind === 'message' && it.role === 'assistant' && it.content && !it.error);
 
-  return { items, conversationId, status, busy, loadingHistory, hasAnswer, send, stop, retryLast, newChat, startQuiz, answerQuiz, endQuiz };
+  return { items, conversationId, status, busy, loadingHistory, hasAnswer, send, stop, retryLast, newChat, startQuiz, answerQuiz, endQuiz, addCanned };
 }

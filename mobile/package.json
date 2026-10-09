@@ -14,11 +14,16 @@
   },
   "dependencies": {
     "@curiox/shared": "*",
+    "@expo-google-fonts/atkinson-hyperlegible": "^0.4.1",
+    "@expo-google-fonts/courier-prime": "^0.4.1",
+    "@expo-google-fonts/gabarito": "^0.4.2",
+    "@expo-google-fonts/reenie-beanie": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.27",
     "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.21",
     "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-linking": "~57.0.12",
     "expo-router": "~57.0.25",
@@ -30,7 +35,9 @@
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "^0.21.2"
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

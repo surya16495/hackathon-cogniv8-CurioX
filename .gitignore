@@ -14,3 +14,4 @@ dev-dist/
 mobile/.expo/
 mobile/android/
 mobile/ios/
+mobile/scripts/.twemoji-cache/

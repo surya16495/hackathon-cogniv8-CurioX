@@ -51,7 +51,7 @@ interface VoiceContextValue {
 const VoiceContext = createContext<VoiceContextValue | null>(null);
 const isWeb = Platform.OS === 'web';
 
-function voiceLang(): string {
+export function voiceLang(): string {
   let locale = 'en-US';
   try {
     locale = Intl.DateTimeFormat().resolvedOptions().locale || locale;
@@ -405,16 +405,17 @@ export function useVoice(): VoiceContextValue {
   return ctx;
 }
 
-/** Describe the current screen to voice mode. Call it on every screen. */
-export function useVoiceScreen(config: VoiceScreenConfig): VoiceContextValue {
+/** Describe the current screen to voice mode. Call it on every screen. Pass active: false while it is hidden (tabs stay mounted). */
+export function useVoiceScreen(config: VoiceScreenConfig & { active?: boolean }): VoiceContextValue {
   const voice = useVoice();
   const ref = useRef(config);
   ref.current = config;
+  const active = config.active !== false;
   const { register, announce, enabled } = voice;
-  useEffect(() => register(ref), [register]);
+  useEffect(() => (active ? register(ref) : undefined), [register, active]);
   useEffect(() => {
-    announce(config.intro);
-    // Re-announce when the intro text changes or voice mode is switched on.
-  }, [config.intro, config.screen, enabled, announce]);
+    if (active) announce(config.intro);
+    // Re-announce when the intro text changes, the screen comes back, or voice mode is switched on.
+  }, [config.intro, config.screen, enabled, announce, active]);
   return voice;
 }

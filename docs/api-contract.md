@@ -115,3 +115,30 @@ Speech-to-text for voice mode (Groq Whisper). The body is the **raw audio file**
 - `200 { "text": "go deeper on black holes" }`. The text can be empty if nothing was said.
 - `503 VOICE_UNAVAILABLE` when the server has no `GROQ_API_KEY` (check `providers.stt` on `/api/health`; the app hides the mic in that case). `502 TRANSCRIBE_FAILED` when Whisper fails, `400` for empty or unsupported audio.
 - Works with `DEMO_MODE=true` too: transcribing the user's own speech is the one Groq call demo mode still makes.
+
+## The zine (added 9 Oct, evening)
+
+Shapes live in [`packages/shared/src/zine.ts`](../packages/shared/src/zine.ts) and [`reader.ts`](../packages/shared/src/reader.ts).
+
+### `POST /api/onboarding/tailor`
+Body `{ "interests": string[] }` (1–12). Returns questions 2–6 of the reader card, shaped by those interests:
+`{ "questions": ReaderQuestion[], "provider": "demo" | "groq" | "gemini" }`. The ten suggested interests are answered instantly from built-in banks (`provider: "demo"`); typed interests get one quick model call. The app also computes the same thing offline with `tailorQuestions()` and uses this response only to refine it.
+
+### `POST /api/onboarding/complete`
+Body `{ "reader": { interests, level, goals, style, tone, curious: string[] } }`. Saves the card as the profile (the old `profile` fields are derived from it; `profile.reader` keeps the card) and marks onboarding `completed` (or `skipped` when empty). Returns `ProfileResponse`. `PUT /api/profile` accepts `{ "reader": … }` too.
+
+### `GET /api/issues/today?date=YYYY-MM-DD`
+The reader's issue for `date` (their local date; implausible dates fall back to today). Made on first request (search + models, ~5–20 s), then kept for the day. 10/min per device.
+`{ "issue": { no, date, lead: Deck, stories: Deck[], quiet: string[] }, "backIssues": DeckSummary[] }`
+- `lead.kind` is `lead` (from today's news) or `demo` (labelled, evergreen, when every model failed). `stories` has one 3-card deck per interest with news; `quiet` lists interests with nothing today.
+- `Deck.cards` is a list of typed cards: `hook`, `what`, `why`, `myth`, `ways`, `vs`, `guess`, `watch` (YouTube id), `simple`. Every card is validated on its own; a bad card is dropped, not the deck.
+- `Deck.teach` is the teach-it-back prompt; `Deck.quiz` the deck's own questions; `art` keys name files in `mobile/assets/art/`.
+
+`DELETE /api/issues/today?date=…` forgets the issue so the next GET makes a fresh one (used after the reader card changes).
+
+### `GET /api/decks/:id` · `POST /api/decks`
+`POST` body is `{ "from": "chat", "conversationId" }` ("Show as cards") or `{ "from": "talk", "title"?, "points": [{ h, say }] }` ("Staple into a deck"). Returns the new `Deck` (201). Decks belong to the device; other devices get 404.
+
+### `POST /api/talk` · `POST /api/talk/teach`
+- `talk`: `{ "message", "history"?: [{ role, content }] }` → `{ "reply", "points": [{ h, say }], "provider" }`. Plain spoken sentences, no Markdown.
+- `teach`: `{ "q", "said", "sample"? }` → `{ "verdict": "got_it" | "nearly" | "not_yet", "feedback", "add", "provider" }`.

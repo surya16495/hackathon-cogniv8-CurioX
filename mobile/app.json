@@ -18,7 +18,7 @@
       "package": "com.cogniv8.curiox",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#4f46e5"
+        "backgroundColor": "#FFB81C"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO"
@@ -42,18 +42,20 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 160,
+          "imageWidth": 120,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#12110F",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#020617"
+            "backgroundColor": "#12110F"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "backgroundColor": "#12110F"
   }
 }

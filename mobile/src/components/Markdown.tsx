@@ -1,9 +1,9 @@
-// A small Markdown renderer for model answers: headings, lists, quotes, code, bold, italic,
-// links and [n] citation chips. Model output only uses this subset, so no heavy dependency.
-import { memo, type ReactNode } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+// A small Markdown renderer for answers on paper: headings, lists, quotes, code, bold, italic,
+// links and [n] citations as circled numbers. Model output only uses this subset, so no heavy dependency.
+import { memo, useEffect, useRef, type ReactNode } from 'react';
+import { Animated, Linking, Text, View } from 'react-native';
 import type { Source } from '@curiox/shared';
-import { useColors, type Colors } from '../theme';
+import { fonts, paper, type } from '../ui/tokens';
 
 type Block =
   | { kind: 'heading'; text: string }
@@ -67,32 +67,29 @@ export function parseBlocks(md: string): Block[] {
 
 const INLINE = /(\*\*[^*]+\*\*|__[^_]+__|\*[^*\s][^*]*\*|_[^_\s][^_]*_|`[^`]+`|\[[^\]]+\]\([^)\s]+\)|\[\d{1,2}\])/g;
 
-function Inline({ text, sources, c }: { text: string; sources: Source[]; c: Colors }): ReactNode {
+/** ① ② ③ …: the design's circled citation numbers. */
+export const circled = (n: number) => (n >= 1 && n <= 20 ? String.fromCharCode(0x2460 + n - 1) : `(${n})`);
+
+function Inline({ text, sources }: { text: string; sources: Source[] }): ReactNode {
   const parts = text.split(INLINE).filter(Boolean);
   return parts.map((p, i) => {
-    if (/^(\*\*|__)/.test(p)) return <Text key={i} style={{ fontWeight: '700' }}>{p.slice(2, -2)}</Text>;
-    if (/^`/.test(p)) return <Text key={i} style={[styles.code, { backgroundColor: c.codeBg }]}>{p.slice(1, -1)}</Text>;
-    if (/^[*_]/.test(p) && p.length > 2) return <Text key={i} style={{ fontStyle: 'italic' }}>{p.slice(1, -1)}</Text>;
+    if (/^(\*\*|__)/.test(p)) return <Text key={i} style={{ fontFamily: fonts.bodyBold }}>{p.slice(2, -2)}</Text>;
+    if (/^`/.test(p)) return <Text key={i} style={{ fontFamily: fonts.type, fontSize: 14 }}>{p.slice(1, -1)}</Text>;
+    if (/^[*_]/.test(p) && p.length > 2) return <Text key={i} style={{ fontFamily: fonts.bodyItalic }}>{p.slice(1, -1)}</Text>;
     const cite = p.match(/^\[(\d{1,2})\]$/);
     if (cite) {
       const source = sources.find((s) => s.id === Number(cite[1]));
-      if (!source) return p;
+      if (!source) return null;
       return (
-        <Text
-          key={i}
-          accessibilityRole="link"
-          accessibilityLabel={`Source ${source.id}: ${source.title}`}
-          onPress={() => Linking.openURL(source.url)}
-          style={[styles.cite, { backgroundColor: c.citeBg, color: c.citeText }]}
-        >
-          {` ${source.id} `}
+        <Text key={i} accessibilityRole="link" accessibilityLabel={`Source ${source.id}: ${source.title}`} onPress={() => Linking.openURL(source.url)} style={{ fontFamily: fonts.typeBold, fontSize: 15, color: paper.ink }}>
+          {` ${circled(source.id)}`}
         </Text>
       );
     }
     const link = p.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
     if (link && /^https?:\/\//.test(link[2]!)) {
       return (
-        <Text key={i} accessibilityRole="link" onPress={() => Linking.openURL(link[2]!)} style={{ color: c.accentText, textDecorationLine: 'underline' }}>
+        <Text key={i} accessibilityRole="link" onPress={() => Linking.openURL(link[2]!)} style={{ textDecorationLine: 'underline' }}>
           {link[1]}
         </Text>
       );
@@ -101,20 +98,39 @@ function Inline({ text, sources, c }: { text: string; sources: Source[]; c: Colo
   });
 }
 
-export const Markdown = memo(function Markdown({ text, sources = [], cursor }: { text: string; sources?: Source[]; cursor?: boolean }) {
-  const c = useColors();
+/** The pen caret while an answer is still arriving. */
+function Caret() {
+  const blink = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([Animated.delay(400), Animated.timing(blink, { toValue: 0, duration: 0, useNativeDriver: true }), Animated.delay(400), Animated.timing(blink, { toValue: 1, duration: 0, useNativeDriver: true })]));
+    loop.start();
+    return () => loop.stop();
+  }, [blink]);
+  return <Animated.Text style={{ color: paper.pen, opacity: blink }}>{' ▍'}</Animated.Text>;
+}
+
+export const Markdown = memo(function Markdown({ text, sources = [], cursor, lead = true }: { text: string; sources?: Source[]; cursor?: boolean; lead?: boolean }) {
   const blocks = parseBlocks(text);
-  const body = { color: c.text, fontSize: 16, lineHeight: 24 };
+  const body = { ...type.body, color: paper.ink };
   return (
     <View style={{ gap: 10 }}>
       {blocks.map((b, bi) => {
         const isLast = bi === blocks.length - 1;
-        const tail = cursor && isLast ? <Text style={{ color: c.primary }}>▍</Text> : null;
+        const tail = cursor && isLast ? <Caret /> : null;
+        // The opening line of an answer is its short version, set big like the design's .ans-short.
+        if (lead && bi === 0 && b.kind === 'para' && b.text.length <= 170) {
+          return (
+            <Text key={bi} accessibilityRole="header" style={{ fontFamily: fonts.disp800, fontSize: 21, lineHeight: 25, color: paper.ink }}>
+              <Inline text={b.text} sources={sources} />
+              {tail}
+            </Text>
+          );
+        }
         switch (b.kind) {
           case 'heading':
             return (
-              <Text key={bi} style={[body, { fontWeight: '700', fontSize: 17 }]}>
-                <Inline text={b.text} sources={sources} c={c} />
+              <Text key={bi} style={{ fontFamily: fonts.disp800, fontSize: 17, lineHeight: 21, color: paper.ink }}>
+                <Inline text={b.text} sources={sources} />
                 {tail}
               </Text>
             );
@@ -124,9 +140,9 @@ export const Markdown = memo(function Markdown({ text, sources = [], cursor }: {
               <View key={bi} style={{ gap: 6 }}>
                 {b.items.map((item, ii) => (
                   <View key={ii} style={{ flexDirection: 'row', gap: 8, paddingRight: 4 }}>
-                    <Text style={[body, { minWidth: 18, color: c.muted }]}>{b.kind === 'bullet' ? '•' : `${(item as { n: string }).n}.`}</Text>
+                    <Text style={[body, { minWidth: 18, fontFamily: fonts.disp800 }]}>{b.kind === 'bullet' ? '•' : `${(item as { n: string }).n}.`}</Text>
                     <Text style={[body, { flex: 1 }]}>
-                      <Inline text={typeof item === 'string' ? item : item.text} sources={sources} c={c} />
+                      <Inline text={typeof item === 'string' ? item : item.text} sources={sources} />
                       {isLast && ii === b.items.length - 1 ? tail : null}
                     </Text>
                   </View>
@@ -135,33 +151,28 @@ export const Markdown = memo(function Markdown({ text, sources = [], cursor }: {
             );
           case 'quote':
             return (
-              <View key={bi} style={{ borderLeftWidth: 3, borderLeftColor: c.citeBg, paddingLeft: 10 }}>
-                <Text style={[body, { color: c.muted, fontStyle: 'italic' }]}>
-                  <Inline text={b.text} sources={sources} c={c} />
+              <View key={bi} style={{ borderLeftWidth: 3, borderLeftColor: paper.yellow, paddingLeft: 10 }}>
+                <Text style={[body, { fontFamily: fonts.bodyItalic, color: paper.ink2 }]}>
+                  <Inline text={b.text} sources={sources} />
                 </Text>
               </View>
             );
           case 'code':
             return (
-              <View key={bi} style={{ backgroundColor: c.codeBg, borderRadius: 8, padding: 10 }}>
-                <Text style={[styles.code, { color: c.text }]}>{b.text}</Text>
+              <View key={bi} style={{ backgroundColor: 'rgba(20,19,16,0.06)', borderRadius: 4, padding: 10 }}>
+                <Text style={{ fontFamily: fonts.type, fontSize: 14, color: paper.ink }}>{b.text}</Text>
               </View>
             );
           default:
             return (
               <Text key={bi} style={body}>
-                <Inline text={b.text} sources={sources} c={c} />
+                <Inline text={b.text} sources={sources} />
                 {tail}
               </Text>
             );
         }
       })}
-      {!blocks.length && cursor ? <Text style={{ color: c.primary }}>▍</Text> : null}
+      {!blocks.length && cursor ? <Caret /> : null}
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  code: { fontFamily: 'monospace', fontSize: 14 },
-  cite: { fontSize: 12, fontWeight: '700', borderRadius: 8, overflow: 'hidden' },
 });

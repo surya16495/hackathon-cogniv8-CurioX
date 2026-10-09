@@ -4,6 +4,13 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type {
   ChatRequest,
+  CreateDeckRequest,
+  Deck,
+  ReaderCard,
+  TailorResponse,
+  TalkResponse,
+  TeachResponse,
+  TodayResponse,
   HealthResponse,
   MessagesResponse,
   OnboardingMessageRequest,
@@ -96,6 +103,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     throw networkError(err);
   }
   if (!res.ok) throw await toApiError(res);
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -109,6 +117,17 @@ export const api = {
   topics: () => request<SuggestedTopicsResponse>('GET', '/api/topics/suggested'),
   messages: (conversationId: string) => request<MessagesResponse>('GET', `/api/conversations/${encodeURIComponent(conversationId)}/messages`),
   quiz: (body: { conversationId?: string; topic?: string; count?: number }) => request<QuizResponse>('POST', '/api/learn/quiz', body),
+
+  // The zine: reader card, issues, decks, talk.
+  tailor: (interests: string[], signal?: AbortSignal) => request<TailorResponse>('POST', '/api/onboarding/tailor', { interests }, signal),
+  completeOnboarding: (reader: ReaderCard) => request<ProfileResponse>('POST', '/api/onboarding/complete', { reader }),
+  today: (date: string, signal?: AbortSignal) => request<TodayResponse>('GET', `/api/issues/today?date=${date}`, undefined, signal),
+  discardToday: (date: string) => request<void>('DELETE', `/api/issues/today?date=${date}`),
+  deck: (id: string) => request<Deck>('GET', `/api/decks/${encodeURIComponent(id)}`),
+  createDeck: (body: CreateDeckRequest) => request<Deck>('POST', '/api/decks', body),
+  talk: (message: string, history: { role: 'user' | 'assistant'; content: string }[], signal?: AbortSignal) =>
+    request<TalkResponse>('POST', '/api/talk', { message, history }, signal),
+  teach: (body: { q: string; said: string; sample?: string }) => request<TeachResponse>('POST', '/api/talk/teach', body),
 
   /** Server speech-to-text. `audio` is a recorded file (native) or Blob (web). */
   async transcribe(audio: Blob | { uri: string; type: string }, lang: string): Promise<string> {

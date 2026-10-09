@@ -1,11 +1,49 @@
-import { Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { onboardingDone, useSession } from '@/hooks/useSession';
-import { ConnectionError, Splash } from '@/screens/Gate';
+import { localDate, useZine, type LastIssue } from '@/hooks/useZine';
+import { KEYS, getJson, loadStorage } from '@/lib/storage';
+import { Opening, openingNotice } from '@/screens/Opening';
+import { CantReach, Waking } from '@/screens/Status';
 
-// Entry: wake the API, load the device's user, then go to onboarding or chat.
+// Entry: the lock-screen opening plays while the server wakes and today's issue is fetched.
 export default function Index() {
-  const { phase, session } = useSession();
-  if (phase === 'waking' || phase === 'slow') return <Splash slow={phase === 'slow'} />;
-  if (phase === 'error' || !session) return <ConnectionError />;
-  return <Redirect href={onboardingDone(session) ? '/chat' : '/welcome'} />;
+  const router = useRouter();
+  const { phase, session, error, retry } = useSession();
+  const { loadToday } = useZine();
+  const [opened, setOpened] = useState(false);
+  const [last, setLast] = useState<LastIssue | null>(null);
+  const onboarded = onboardingDone(session);
+  const ready = phase === 'ready' && !!session;
+
+  useEffect(() => {
+    void loadStorage().then(() => setLast(getJson<LastIssue | null>(KEYS.lastIssue, null)));
+  }, []);
+
+  // Start printing today's issue during the animation, so Home opens on it.
+  useEffect(() => {
+    if (ready && onboarded) void loadToday();
+  }, [ready, onboarded, loadToday]);
+
+  useEffect(() => {
+    if (opened && ready) router.replace(onboarded ? '/home' : '/onboard');
+  }, [opened, ready, onboarded, router]);
+
+  if (phase === 'error') {
+    return (
+      <CantReach
+        message={error}
+        onRetry={() => {
+          setOpened(false);
+          retry();
+        }}
+      />
+    );
+  }
+  if (opened && !ready) return <Waking />;
+
+  // Until the session arrives, a saved issue means a returning reader.
+  const returning = session ? onboarded : !!last;
+  const notice = openingNotice({ onboarded: returning, last, today: localDate(), interests: session?.profile.interests ?? [] });
+  return <Opening notice={notice} ready={ready} onOpen={() => setOpened(true)} />;
 }

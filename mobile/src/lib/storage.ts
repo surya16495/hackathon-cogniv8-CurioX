@@ -6,7 +6,27 @@ export const KEYS = {
   deviceId: 'curiox.deviceId',
   conversationId: 'curiox.conversationId',
   voice: 'curiox.voice',
+  /** JSON: Pin[] — sources and videos kept for a deeper read. */
+  pins: 'curiox.pins',
+  /** JSON: deck ids the reader has swiped to the end of. */
+  read: 'curiox.read',
+  /** JSON: the last issue's number and lead, for the opening notification. */
+  lastIssue: 'curiox.lastIssue',
 } as const;
+
+export function getJson<T>(key: string, fallback: T): T {
+  const raw = storage.get(key);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function setJson(key: string, value: unknown): void {
+  storage.set(key, JSON.stringify(value));
+}
 
 const memory = new Map<string, string>();
 let loaded: Promise<void> | null = null;

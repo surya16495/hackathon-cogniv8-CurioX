@@ -180,6 +180,14 @@ describe('GET /api/issues/today', () => {
     expect(leadCall.messages[0]!.content).toContain('[1] Cricket story one');
   });
 
+  it('accepts a story list sent without its wrapper object', async () => {
+    const { app } = makeApp({ providers: [zineModel({ stories: stories.stories })], searcher: fakeSearcher(news('Cricket')) });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader: { ...reader, interests: ['Cricket'] } });
+    const res = await c.get('/api/issues/today');
+    expect(res.body.issue.stories.map((s: { title: string }) => s.title)).toEqual(['Dew decides night games']);
+  });
+
   it('drops bad cards and falls back to the demo issue when the lead is unusable', async () => {
     const searcher = fakeSearcher(news('Space'));
     const bad = makeApp({ providers: [zineModel({ lead: { ...lead, guess: { ...lead.guess, answer: 99 }, vs: { title: 'x' } } })], searcher });

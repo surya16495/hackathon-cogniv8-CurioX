@@ -158,7 +158,9 @@ export function assembleLead(raw: LooseLead, sources: Source[], video: Video | n
 
 // ---------- story decks ----------
 
-const looseStories = z.object({ stories: z.array(z.record(z.any())).min(1) });
+// Models sometimes drop the wrapper object and send the list itself; take either.
+const storyList = z.array(z.record(z.any())).min(1);
+const looseStories = z.union([z.object({ stories: storyList }), storyList.transform((stories) => ({ stories }))]);
 
 interface StoryItem {
   item: number;
@@ -166,7 +168,7 @@ interface StoryItem {
   sources: Source[];
 }
 
-export function assembleStories(raw: z.infer<typeof looseStories>, items: StoryItem[]): (DeckDraft & { sources: Source[] })[] {
+export function assembleStories(raw: { stories: Record<string, any>[] }, items: StoryItem[]): (DeckDraft & { sources: Source[] })[] {
   const out: (DeckDraft & { sources: Source[] })[] = [];
   for (const s of raw.stories) {
     const item = items.find((i) => i.item === Number(s.item));
@@ -204,9 +206,13 @@ function sourcesBlock(sources: Source[]): string {
     : 'SOURCES: none. Write an evergreen explainer from general knowledge, with no claims about recent events.';
 }
 
+// Streams, match coverage and compilations make poor "watch it" cards.
+const NOT_EXPLAINERS = /\b(live|livestream|stream|full match|highlights|scorecard|shorts?|#shorts|reaction)\b/i;
+
 async function findVideo(query: string, search: SearchService): Promise<Video | null> {
-  const { sources } = await search.search(`${query} explained`, { includeDomains: ['youtube.com'], max: 5 });
+  const { sources } = await search.search(`${query} explained`, { includeDomains: ['youtube.com'], max: 6 });
   for (const s of sources) {
+    if (NOT_EXPLAINERS.test(s.title)) continue;
     const id = youtubeId(s.url);
     if (!id) continue;
     const v = videoSchema.safeParse({
@@ -303,11 +309,10 @@ export async function draftIssue(profile: Profile, services: IssueServices): Pro
       )
     : Promise.resolve({ data: null, provider: 'demo' as Provider });
 
-  const [video, leadRes, storiesRes] = await Promise.all([
-    findVideo(videoQuery, services.search).catch(() => null),
-    leadTask,
-    storiesTask,
-  ]);
+  const [leadRes, storiesRes] = await Promise.all([leadTask, storiesTask]);
+  // The video is looked up from the deck's own headline, which says what the story is about
+  // far better than a news site's headline does.
+  const video = await findVideo(leadRes.data?.title ?? videoQuery, services.search).catch(() => null);
 
   const lead = leadRes.data ? assembleLead(leadRes.data, leadSources, video) : null;
   if (!lead) {

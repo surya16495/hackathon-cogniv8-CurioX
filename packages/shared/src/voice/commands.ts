@@ -3,7 +3,20 @@
 // that merely contains a command word ("can you simplify relativity?") is sent as a question.
 import type { LearnActionId } from '../actions';
 
-export type ScreenId = 'welcome' | 'onboarding' | 'ready' | 'chat' | 'profile' | 'error';
+export type ScreenId =
+  | 'welcome'
+  | 'onboarding'
+  | 'ready'
+  | 'chat'
+  | 'profile'
+  | 'error'
+  // the zine app
+  | 'questions'
+  | 'home'
+  | 'deck'
+  | 'quiz'
+  | 'talk'
+  | 'pins';
 export type ListField = 'interests' | 'goals' | 'curiosities';
 export type TextField = 'tone' | 'explanationStyle';
 
@@ -37,7 +50,33 @@ export type Command =
   | { type: 'redoOnboarding' }
   | { type: 'clearAll' }
   | { type: 'confirm' }
-  | { type: 'cancel' };
+  | { type: 'cancel' }
+  // the zine app
+  | { type: 'next' }
+  | { type: 'prev' }
+  | { type: 'close' }
+  | { type: 'goHome' }
+  | { type: 'openTalk' }
+  | { type: 'openPins' }
+  | { type: 'openAsk' }
+  | { type: 'openToday' }
+  | { type: 'openStory'; n: number }
+  | { type: 'listStories' }
+  | { type: 'readCard' }
+  | { type: 'myth'; answer: 'myth' | 'fact' }
+  | { type: 'guess'; value: number }
+  | { type: 'lockIn' }
+  | { type: 'way'; n: number }
+  | { type: 'play' }
+  | { type: 'pin' }
+  | { type: 'teachBack' }
+  | { type: 'listen' }
+  | { type: 'nextStory' }
+  | { type: 'reexplain' }
+  | { type: 'staple' }
+  | { type: 'makeDeck' }
+  | { type: 'openPin'; n: number }
+  | { type: 'readPins' };
 
 export interface ParseContext {
   screen: ScreenId;
@@ -114,6 +153,44 @@ const OPEN_SOURCE = /^open (the )?(source|link|website|site)( number)? (\w+)$/;
 const OPEN_SOURCE_ORDINAL = /^open (the )?(\w+) (source|link)$/;
 const PICK_TOPIC = /^((topic|option|number|pick|choose|select)( number)? (\w+)|(the )?(\w+) (one|topic|option))$/;
 const LIST_TOPICS = /^((what|which) (topics|suggestions)|suggest (something|a topic|topics)|(read|list|say) (the )?(topics|suggestions)|give me (some )?ideas|ideas|topics)$/;
+
+// ---------- The zine ----------
+const GO_HOME = /^(go home|home|go to home|back to home|home screen|main screen|today)$/;
+const OPEN_TALK = /^((open |go to |start )?talk( mode)?|lets talk|talk to me|can we talk|conversation mode)$/;
+const OPEN_PINS = /^((open |show |go to )?(my |the )?(pinboard|pin board|pins|pinned( stuff| things)?|saved( stuff| things)?))$/;
+const OPEN_ASK = /^((open |go to )?(ask|chat)|ask (a question|something|curio ?x)|i (have|got) a question|(i want to |let me )?ask (you )?(a question|something))$/;
+const OPEN_YOU = /^((open |show |go to )?(you|my reader card|reader card|my card)|about me)$/;
+const OPEN_TODAY = /^(open|read|read it|open it|start|go|lets go|yes|yeah|(open|read|start|show me) (todays |today s |the )?(issue|lead|lead story|deck|cards|story|news)|whats new today|todays issue)$/;
+const LIST_STORIES = /^(whats (in|new)( today| todays issue| the issue| in todays issue| in the issue)?|what else|(read|list|tell me) (me )?(the )?(headlines|stories|todays stories|whats in the issue)|headlines|stories)$/;
+const OPEN_STORY = /^(?:open|read|show)?\s*(?:the\s+)?(?:story|deck)\s+(?:number\s+)?(\w+)$|^(?:open|read|show)\s+(?:the\s+)?(\w+)\s+(?:story|one|deck)$/;
+const NEXT = /^(next|next one|next card|forward|go on|keep going|continue|carry on|swipe|onwards|go ahead|and then|then what|okay next|ok next)$/;
+const PREV = /^(previous|previous card|back a card|go back a card|last card|the card before|before that|one back)$/;
+const CLOSE = /^(close|close (it|this|the deck|the cards)|exit|im done|i am done|done|thats enough|finished)$/;
+const READ_CARD = /^(read (it|this|that)( out)?|read (this|the) card|read the card( out)?|what does it say|read)$/;
+const MYTH = /^(?:(?:i think|i say|its|it is|i guess|thats|that is|definitely|probably|answer)\s+)*(?:a\s+)?(myth|fact|true|false|real|fake)$/;
+const GUESS = /^(?:(?:my guess is|i guess|i think|i say|i reckon|guess|maybe|about|around|its|it is|probably)\s+)*(?:about |around )?(\d[\d,]*(?:\.\d+)?)(?:\s*(?:k|thousand|million|billion|percent|%|\w+))?$/;
+const LOCK_IN = /^(lock (it )?in|lock|final answer|thats my (guess|answer)|submit|im sure)$/;
+const WAYS: [RegExp, number][] = [
+  [/^((like )?(im|i am) (ten|10|five|5|a kid)|(for|like) a (kid|child)|simple( version| one)?|easy( version| one)?|first( one| way)?)$/, 0],
+  [/^((in|with) (cricket|sport|sports|music|space|money|football|my (interest|hobby))|(the )?(middle|second)( one| way)?|analogy)$/, 1],
+  [/^((the )?technical( one| version| way)?|nerdy|for (experts|nerds)|third( one| way)?|(the )?last( one| way)?)$/, 2],
+];
+const PLAY = /^(play|play (it|the video|video)|watch( it| the video)?|start the video)$/;
+const PIN = /^(pin|pin (it|this|that|the source|the video)|save (it|this|that)|keep (it|this))$/;
+const TEACH = /^(teach (it )?back|let me (explain|teach)( it)?|i want to explain( it)?|teach it back)$/;
+const LISTEN = /^(listen|read (it )?(all|aloud|out loud)|read (me )?the (whole )?(deck|story|issue)|read everything)$/;
+const NEXT_STORY = /^(next story|another story|next deck|whats next|open the next (one|story))$/;
+const NEXT_QUESTION = /^(next|next question|continue|go on|keep going|see (my )?score|whats my score|score)$/;
+const REEXPLAIN = /^(explain (that|it|this)( one)? (another|a different) way|another way|explain (that|it) again|i dont get it)$/;
+const STAPLE = /^(staple( it| this| that)?( into a deck)?|make (it )?(a |into a )?deck|save (this|it|that) (as|into) (a )?deck|save the talk|keep this talk)$/;
+const MAKE_DECK = /^((show|turn|make) (it|this|that) (as|into) cards|show as cards|make (a deck|cards)|cards please)$/;
+const OPEN_PIN = /^open (?:the )?(?:pin|pinned( one)?|item)\s+(?:number\s+)?(\w+)$|^open (?:the )?(\w+) (?:pin|one)$/;
+const READ_PINS = /^((read|list|whats on|what is on) (me )?(my |the )?(pins|pinboard|pin board)|what did i pin)$/;
+const Q_NEXT = /^(next|next question|continue|go on|done|thats it|thats all|thats everything|move on|okay next|ok next|carry on)$/;
+const Q_SKIP = /^(skip|skip (this|that|it)( one| question)?|pass|skip question|no idea|i dont know)$/;
+const Q_FINISH = /^(finish|finish now|stop (the )?questions|no more questions|skip (the )?rest)$/;
+
+const ZINE = new Set<ScreenId>(['home', 'deck', 'quiz', 'talk', 'pins', 'chat', 'profile']);
 
 const LETTERS: Record<string, number> = { a: 0, ay: 0, eh: 0, b: 1, be: 1, bee: 1, c: 2, see: 2, sea: 2, si: 2, d: 3, dee: 3, de: 3 };
 const QUIZ_LETTER = /^(?:(?:option|answer|letter|choice|its|it is|i think|i think its|i choose|i pick|my answer is)\s+)?([a-z]{1,3})$/;
@@ -245,6 +322,83 @@ export function parseCommand(raw: string, ctx: ParseContext): Command | null {
     case 'error':
       if (is(t, START) || is(t, RETRY)) return { type: 'retry' };
       break;
+
+    case 'questions':
+      if (is(t, Q_NEXT)) return { type: 'next' };
+      if (is(t, Q_SKIP)) return { type: 'skipQuestion' };
+      if (is(t, Q_FINISH)) return { type: 'finish' };
+      if (is(t, PREV) || t === 'back' || t === 'go back') return { type: 'back' };
+      break;
+
+    case 'home': {
+      if (is(t, LIST_STORIES)) return { type: 'listStories' };
+      const m = t.match(OPEN_STORY);
+      const n = numberFrom(m?.[1] ?? m?.[2]);
+      if (n) return { type: 'openStory', n };
+      if (is(t, OPEN_TODAY)) return { type: 'openToday' };
+      break;
+    }
+
+    case 'deck': {
+      if (ctx.quizOptions?.length) {
+        const index = quizAnswer(t, ctx.quizOptions);
+        if (index !== null) return { type: 'quizAnswer', index };
+      }
+      const myth = t.match(MYTH)?.[1];
+      if (myth) return { type: 'myth', answer: myth === 'myth' || myth === 'false' || myth === 'fake' ? 'myth' : 'fact' };
+      // Numbers keep their "," and "." here: normalize() would split "1,200" and "3.5".
+      const guess = raw.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9.,%\s]/g, ' ').replace(/\s+/g, ' ').trim().replace(/[.,]$/, '').match(GUESS)?.[1];
+      if (guess) return { type: 'guess', value: Number(guess.replace(/,/g, '')) };
+      if (is(t, LOCK_IN)) return { type: 'lockIn' };
+      for (const [re, n] of WAYS) if (is(t, re)) return { type: 'way', n };
+      if (is(t, NEXT_STORY)) return { type: 'nextStory' };
+      if (is(t, NEXT)) return { type: 'next' };
+      if (is(t, PREV)) return { type: 'prev' };
+      if (is(t, PLAY)) return { type: 'play' };
+      if (is(t, PIN)) return { type: 'pin' };
+      if (is(t, QUIZ)) return { type: 'quiz' };
+      if (is(t, TEACH)) return { type: 'teachBack' };
+      if (is(t, READ_SOURCES)) return { type: 'readSources' };
+      if (is(t, LISTEN)) return { type: 'listen' };
+      if (is(t, READ_CARD)) return { type: 'readCard' };
+      if (is(t, CLOSE)) return { type: 'close' };
+      break;
+    }
+
+    case 'quiz':
+      if (ctx.quizOptions?.length) {
+        const index = quizAnswer(t, ctx.quizOptions);
+        if (index !== null) return { type: 'quizAnswer', index };
+      }
+      if (is(t, REEXPLAIN)) return { type: 'reexplain' };
+      if (is(t, NEXT_QUESTION)) return { type: 'next' };
+      if (is(t, CLOSE) || is(t, END_QUIZ)) return { type: 'close' };
+      break;
+
+    case 'talk':
+      if (is(t, STAPLE)) return { type: 'staple' };
+      if (is(t, START_OVER)) return { type: 'startOver' };
+      break;
+
+    case 'pins': {
+      if (is(t, READ_PINS)) return { type: 'readPins' };
+      const m = t.match(OPEN_PIN);
+      const n = numberFrom(m?.[1] ?? m?.[2]);
+      if (n) return { type: 'openPin', n };
+      break;
+    }
+  }
+
+  // Getting around the zine app, from any of its screens.
+  if (ZINE.has(ctx.screen)) {
+    if (ctx.screen === 'chat') {
+      if (is(t, MAKE_DECK)) return { type: 'makeDeck' };
+    }
+    if (ctx.screen !== 'home' && is(t, GO_HOME)) return { type: 'goHome' };
+    if (ctx.screen !== 'talk' && is(t, OPEN_TALK)) return { type: 'openTalk' };
+    if (ctx.screen !== 'pins' && is(t, OPEN_PINS)) return { type: 'openPins' };
+    if (ctx.screen !== 'chat' && is(t, OPEN_ASK)) return { type: 'openAsk' };
+    if (ctx.screen !== 'profile' && is(t, OPEN_YOU)) return { type: 'openProfile' };
   }
 
   // Checked last so a screen's own meaning of "stop"/"back"/"skip" wins.
@@ -264,4 +418,10 @@ export const HELP_TEXT: Record<ScreenId, string> = {
   profile:
     'You can say things like "add interest chess", "remove interest cooking", "my goal is to pass my exam", "set tone to playful", "read my profile", "redo onboarding", "clear everything", or "go back".',
   error: 'Say "try again" to reconnect.',
+  questions: 'Say the options you like, one or a few at a time, or say your own answer. Then say "next". You can also say "skip", "go back", or "repeat" to hear the options again.',
+  home: 'Say "open" to read today\'s issue, "what\'s new" to hear the headlines, or "open story two". You can also say "talk", "ask a question", "pinboard", or "my reader card".',
+  deck: 'Say "next" or "previous" to turn the cards, and "read it" to hear this one. Answer "myth" or "fact", say a number to guess, or "lock it in". You can also say "play", "pin it", "quiz me", "teach it back", "listen", "next story", or "close".',
+  quiz: 'Say the letter or the words of your answer, then "next". After the score, say "explain that another way", or "go home".',
+  talk: 'Just ask me anything, out loud. Say "staple it" to keep what we said as a deck, or "start over" to begin again.',
+  pins: 'Say "read my pins" to hear what you saved, or "open pin one". You can also say "go home".',
 };
