@@ -6,6 +6,7 @@ import { quotaLimiter } from '../middleware/rateLimit';
 import { addTopicStory, deckFromConversation, deckFromTalk, deckFromTalkSummary, discardIssue, getDeck, issueDate, todayIfMade, todayIssue } from '../services/issues';
 import { finishTalk, openTalk, talk, teachBack } from '../services/learn/talk';
 import { sanitizeProfile } from '../services/onboarding/extract';
+import { recordSignal } from '../services/interests';
 import { userProfile } from '../services/onboarding/steps';
 import { notFound } from '../utils/errors';
 import type { Services } from '../services';
@@ -88,6 +89,14 @@ export function talkRouter(services: Services): Router {
     let addedInterest = false;
     let deckId: string | null = null;
     let updatedProfile = profile;
+    // Every talk counts towards the topic; a keen one promotes it at once.
+    if (result.level !== 'high' && result.topic.trim()) {
+      const signal = await recordSignal(user, result.topic, 'talk').catch(() => null);
+      if (signal?.promoted) {
+        addedInterest = true;
+        updatedProfile = signal.profile;
+      }
+    }
     if (result.level === 'high') {
       const topic = result.topic.trim();
       const known = profile.interests.some((i) => i.toLowerCase() === topic.toLowerCase());

@@ -38,7 +38,10 @@ function DeckInner({ id, card }: { id: string; card?: string }) {
       next={z.nextUnread(deck.id)}
       isPinned={z.isPinned}
       togglePin={z.togglePin}
-      onRead={() => z.markRead(deck.id)}
+      onRead={() => {
+        z.markRead(deck.id);
+        z.signal(deck.topic, 'read');
+      }}
       onClose={close}
       onQuiz={() => router.push({ pathname: '/quiz', params: { deck: deck.id } })}
       onNext={(nid) => router.replace({ pathname: '/deck/[id]', params: { id: nid } })}

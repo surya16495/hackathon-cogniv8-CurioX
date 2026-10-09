@@ -43,7 +43,7 @@ const stories = { stories: [{ item: 1, title: 'Dew decides night games', art: 'd
 ], teach: { q: 'Why does dew matter? One sentence.', sample: 'A wet ball is hard to grip.', add: 'captains bowl first' }, quiz: [] }] };
 
 /** One fake model that answers each job by its system prompt. */
-function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open' | 'finish' | 'teach' | 'tailor' | 'chatdeck', unknown>> = {}) {
+function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open' | 'finish' | 'teach' | 'tailor' | 'chatdeck' | 'related', unknown>> = {}) {
   return fakeProvider({
     name: 'groq',
     complete: (req) => {
@@ -56,6 +56,7 @@ function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open
       if (s.includes('"keyPoints"')) return pick('finish', { topic: 'dew in cricket', keyPoints: ['Wet balls slip.', 'Captains bowl first.', 'Watch for towels.'], interest: 85, reason: 'Asked lots.', goodbye: 'Lovely chat. Remember: wet ball, bowl first!' });
       if (s.includes('"points"')) return pick('talk', { points: [{ h: 'Short answer', say: 'It is all about grip.' }, { h: 'Why', say: 'Wet balls slip.' }], topic: 'dew in cricket', done: false });
       if (s.includes('verdict')) return pick('teach', { verdict: 'got_it', feedback: 'Nailed it.', add: 'mention the toss.' });
+      if (s.includes('adjacent topics')) return pick('related', { topics: [{ topic: 'Sports science', because: 'Cricket' }, { topic: 'Rocket engines', because: 'Space' }] });
       if (s.includes('onboarding chips')) return pick('tailor', { regular: 'I throw pots weekly', goals: ['Sell my pots'], curious: ['Why do pots crack?', 'What is a glaze?', 'Which clay is best?'] });
       if (s.includes('Turn this conversation')) return pick('chatdeck', { title: 'Tides', art: 'wave', cards: [{ h: 'Moon pulls', body: 'The moon pulls the sea.', art: 'moon' }, { h: 'Twice a day', body: 'Two bulges.', art: 'wave' }], teach: lead.teach, quiz: [] });
       return '{"needsSearch":false,"query":""}';
@@ -230,6 +231,96 @@ describe('GET /api/issues/today', () => {
     expect(issueDate('2026-12-25', now)).toBe('2026-10-09');
     expect(issueDate('not a date', now)).toBe('2026-10-09');
     expect(issueDate(undefined, now)).toBe('2026-10-09');
+  });
+});
+
+describe('the carousel, related topics and new readers', () => {
+  const twoStories = (titles: string[]) => ({ stories: titles.map((title, i) => ({ item: i + 1, title, art: 'bulb', sourceIndex: 1, summary: `${title} in short.`, topic: ['Cricket', 'Sports science', 'Space', 'Rockets', 'Health'][i], cards: [
+    { kind: 'simple', h: 'What happened', body: `${title} happened.`, art: 'bulb' },
+    { kind: 'simple', h: 'Why', body: 'Because.', art: 'eyes' },
+  ], teach: lead.teach, quiz: [] })) });
+
+  it('features the lead plus up to four stories, own interests before related ones, and tags related decks', async () => {
+    // Items: 1 Cricket (lead's leftovers), 2 Space, 3 Sports science (related to Cricket), 4 Rocket engines (related to Space)
+    const model = zineModel({ stories: twoStories(['Cricket one', 'Space one', 'Sports science one', 'Rocket engines one']) });
+    const searcher = { calls: [] as string[], available: () => true, async search(q: string) { searcher.calls.push(q); return news(q.replace(/^latest |\s+news$/g, '').slice(0, 12)); } };
+    const { app } = makeApp({ providers: [model], searcher });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    const res = await c.get('/api/issues/today');
+    const { issue } = res.body;
+    expect(issue.discover).toBe(false);
+    expect(issue.featured[0]).toBe(issue.lead.id);
+    expect(issue.featured).toHaveLength(5);
+    const byId = Object.fromEntries(issue.stories.map((d: { id: string }) => [d.id, d]));
+    const featuredTopics = issue.featured.slice(1).map((id: string) => byId[id].topic);
+    expect(featuredTopics.slice(0, 2)).toEqual(['Cricket', 'Space']); // own interests first
+    const related = issue.stories.filter((d: { relatedTo: string }) => d.relatedTo);
+    expect(related.map((d: { topic: string; relatedTo: string; tag: string }) => [d.topic, d.relatedTo, d.tag])).toEqual([
+      ['Sports science', 'Cricket', 'because you follow Cricket'],
+      ['Rocket engines', 'Space', 'because you follow Space'],
+    ]);
+    expect(searcher.calls.some((q) => /Sports science/.test(q))).toBe(true);
+  });
+
+  it("a new reader with no interests gets today's top stories, and the model names each subject", async () => {
+    const model = zineModel({ stories: twoStories(['Top one', 'Top two', 'Top three', 'Top four', 'Top five']) });
+    const top = Array.from({ length: 10 }, (_, i) => ({ title: `Top story ${i + 1}`, url: `https://news.example/top/${i + 1}`, snippet: `Story ${i + 1}.` }));
+    const searcher = { calls: [] as string[], available: () => true, async search(q: string) { searcher.calls.push(q); const m = q.match(/^top (\w+) news/); return m ? top.slice(['world', 'technology', 'science', 'sports', 'business'].indexOf(m[1]!) * 2).slice(0, 2) : news('x'); } };
+    const { app } = makeApp({ providers: [model], searcher });
+    const c = client(app);
+    const res = await c.get('/api/issues/today');
+    const { issue } = res.body;
+    expect(issue.discover).toBe(true);
+    expect(issue.featured).toHaveLength(5);
+    expect(issue.stories[0].topic).toBe('Cricket'); // the subject the model gave, since the item had none
+    expect(issue.stories.every((d: { relatedTo: string }) => d.relatedTo === '')).toBe(true);
+    expect(searcher.calls.filter((q) => /^top \w+ news stories today/.test(q))).toHaveLength(5);
+    expect(issue.quiet).toEqual([]);
+  });
+
+  it('with nothing new on the interests, the reader\'s talk topics carry the issue', async () => {
+    const model = zineModel({ stories: twoStories(['Dew one']) });
+    const searcher = { calls: [] as string[], available: () => true, async search(q: string) { searcher.calls.push(q); return /dew/i.test(q) ? news('dew') : []; } };
+    const { app } = makeApp({ providers: [model], searcher });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    await c.post('/api/talk/finish').send({ topic: 'dew', history: [{ role: 'user', content: 'dew?' }], points: [] }); // saves a talk about "dew in cricket"
+    const res = await c.get('/api/issues/today');
+    const { issue } = res.body;
+    expect(issue.lead.topic).toBe('dew in cricket');
+    expect(issue.lead.tag).toBe('today');
+    expect(issue.quiet).toEqual(['Cricket', 'Space']);
+  });
+});
+
+describe('interest signals', () => {
+  it('reads, asks and talks add up; at four the topic becomes an interest', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    let r = await c.post('/api/signals').send({ topic: 'chess', kind: 'read' });
+    expect(r.body).toMatchObject({ promoted: false });
+    r = await c.post('/api/signals').send({ topic: 'Chess news', kind: 'ask' }); // same topic, different words
+    expect(r.body.promoted).toBe(false);
+    r = await c.post('/api/signals').send({ topic: 'chess', kind: 'read' });
+    expect(r.body.promoted).toBe(true);
+    expect(r.body.profile.interests).toEqual(['Cricket', 'Space', 'Chess']);
+    expect(r.body.profile.reader.interests).toContain('Chess');
+    expect((await c.get('/api/profile')).body.profile.interests).toContain('Chess');
+    // Already an interest: nothing more happens.
+    r = await c.post('/api/signals').send({ topic: 'chess', kind: 'talk' });
+    expect(r.body.promoted).toBe(false);
+  });
+
+  it('a talk counts three, so two talks promote; a reader with no interests gets their first one this way', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    expect((await c.post('/api/signals').send({ topic: 'Rockets', kind: 'talk' })).body.promoted).toBe(false);
+    const r = await c.post('/api/signals').send({ topic: 'rockets', kind: 'talk' });
+    expect(r.body.promoted).toBe(true);
+    expect(r.body.profile.interests).toEqual(['Rockets']);
+    expect((await c.post('/api/signals').send({ topic: 'x', kind: 'nope' })).status).toBe(400);
   });
 });
 

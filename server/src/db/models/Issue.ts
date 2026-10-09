@@ -8,7 +8,10 @@ const issueSchema = new Schema(
     no: { type: Number, required: true },
     leadId: { type: Types.ObjectId, ref: 'Deck', required: true },
     storyIds: { type: [Types.ObjectId], default: [] },
+    /** Carousel order, lead first. Older issues without it show the lead and the first stories. */
+    featuredIds: { type: [Types.ObjectId], default: [] },
     quiet: { type: [String], default: [] },
+    discover: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

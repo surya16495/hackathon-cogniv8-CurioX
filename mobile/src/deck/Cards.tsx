@@ -343,14 +343,15 @@ export function GuessCard({ c }: { c: CardOf<'guess'> }) {
 }
 
 // ---------- 8 watch it ----------
-function Player({ videoId, title }: { videoId: string; title: string }) {
-  const src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
+function Player({ videoId, title, width }: { videoId: string; title: string; width: number }) {
   if (Platform.OS === 'web') {
+    const src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
     return createElement('iframe', { src, title, allow: 'autoplay; encrypted-media; picture-in-picture', allowFullScreen: true, style: { width: '100%', height: '100%', border: 0 } });
   }
-  // Loaded lazily: the WebView is only needed once someone presses play.
-  const { WebView } = require('react-native-webview') as typeof import('react-native-webview');
-  return <WebView source={{ uri: src }} allowsInlineMediaPlayback mediaPlaybackRequiresUserAction={false} allowsFullscreenVideo style={{ flex: 1, backgroundColor: paper.ink }} />;
+  // On the phone a bare WebView embed fails with YouTube's error 153 (no page origin behind the
+  // request); the IFrame-API player sets one up properly. Loaded lazily, only once play is pressed.
+  const YoutubePlayer = (require('react-native-youtube-iframe') as typeof import('react-native-youtube-iframe')).default;
+  return <YoutubePlayer height={Math.round((width * 9) / 16)} width={width} videoId={videoId} play initialPlayerParams={{ modestbranding: true, rel: false }} webViewProps={{ allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserAction: false }} />;
 }
 
 export function WatchCard({ c, pin }: { c: CardOf<'watch'>; pin?: PinTarget }) {
@@ -370,6 +371,7 @@ export function WatchCard({ c, pin }: { c: CardOf<'watch'>; pin?: PinTarget }) {
     loop.start();
     return () => loop.stop();
   }, [reduce, playing, drift]);
+  const [playerW, setPlayerW] = useState(0);
   return (
     <>
       <CardH>Watch it</CardH>
@@ -377,9 +379,9 @@ export function WatchCard({ c, pin }: { c: CardOf<'watch'>; pin?: PinTarget }) {
         <SpotCut art={c.art} size={120} rotate={-8} style={{ right: -12, top: -102 }} />
         <Panel style={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: 20 }}>
           <View style={{ borderRadius: 10, overflow: 'hidden', backgroundColor: paper.ink, boxShadow: g.sh }}>
-            <View style={{ aspectRatio: 16 / 9, overflow: 'hidden' }}>
-              {playing ? (
-                <Player videoId={c.video.videoId} title={c.video.title} />
+            <View style={{ aspectRatio: 16 / 9, overflow: 'hidden' }} onLayout={(e) => setPlayerW(e.nativeEvent.layout.width)}>
+              {playing && playerW > 0 ? (
+                <Player videoId={c.video.videoId} title={c.video.title} width={playerW} />
               ) : (
                 <>
                   <Animated.View

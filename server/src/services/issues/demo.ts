@@ -6,6 +6,7 @@ import type { ArtKey } from '@curiox/shared';
 export interface DeckDraft {
   title: string;
   topic: string;
+  relatedTo?: string;
   art: ArtKey;
   cards: Card[];
   summary: string;

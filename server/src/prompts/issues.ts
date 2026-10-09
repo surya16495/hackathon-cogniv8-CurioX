@@ -68,11 +68,16 @@ Reply with JSON only, exactly this shape:
   "cards": [3 or 4 typed cards as above],
   "teach": ${TEACH_SHAPE},
   "quiz": [2 of ${QUIZ_SHAPE}],
-  "summary": ${SUMMARY_SHAPE}
+  "summary": ${SUMMARY_SHAPE},
+  "topic": string            // the broad subject this story belongs to, 1 to 3 words, title case (e.g. "Space", "Cricket", "Personal finance")
 }]}`;
+
+export const RELATED_TOPICS_PROMPT = `A reader follows some topics. Suggest adjacent topics they would probably enjoy and that make news: close neighbours, not the same thing twice (for a cricket fan: "Test cricket tactics", "sports science", "IPL business"; for AI: "robotics", "chips and GPUs", "AI policy").
+Reply with JSON only: {"topics": [{"topic": string (2 to 4 words), "because": string (one of the reader's topics, exactly as given)}]}
+Give 6, each with a different angle, none equal to a topic the reader already follows.`;
 
 export const CHAT_DECK_PROMPT = `Turn this conversation into a short deck of swipeable learning cards for the same reader.
 ${VOICE}
 Use only what the conversation says. ${ART_RULE}
 Reply with JSON only:
-{"title": string (max 44 chars), "art": string, "cards": [3 or 4 of {"h": string (max 48 chars), "body": string (max 220 chars), "art": string}], "teach": ${TEACH_SHAPE}, "quiz": [2 or 3 of ${QUIZ_SHAPE}], "summary": ${SUMMARY_SHAPE}}`;
+{"title": string (max 44 chars), "art": string, "topic": string (the broad subject, 1 to 3 words, title case), "cards": [3 or 4 of {"h": string (max 48 chars), "body": string (max 220 chars), "art": string}], "teach": ${TEACH_SHAPE}, "quiz": [2 or 3 of ${QUIZ_SHAPE}], "summary": ${SUMMARY_SHAPE}}`;

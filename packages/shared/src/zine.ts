@@ -128,6 +128,8 @@ export interface Deck {
   tag: string;
   /** The interest this story belongs to, for grouping on Home. */
   topic: string;
+  /** For a story on an adjacent topic: the interest it is related to ("because you follow X"). */
+  relatedTo: string;
   art: ArtKey;
   cards: Card[];
   /** Two or three spoken sentences: the "summary podcast" at the end of the deck. */
@@ -147,8 +149,22 @@ export interface Issue {
   date: string;
   lead: Deck;
   stories: Deck[];
+  /** Deck ids for the "Today for you" carousel, lead first (up to 5). The rest go under "Also in this issue". */
+  featured: string[];
   /** Interests with nothing new today. */
   quiet: string[];
+  /** The reader has no interests yet: the issue is today's top stories, and reading them teaches CurioX what they like. */
+  discover: boolean;
+}
+
+/** POST /api/signals: something the reader did that hints at an interest. */
+export const SIGNAL_KINDS = ['read', 'ask', 'talk'] as const;
+export type SignalKind = (typeof SIGNAL_KINDS)[number];
+export const signalSchema = z.object({ topic: z.string().trim().min(2).max(80), kind: z.enum(SIGNAL_KINDS) }).strict();
+export interface SignalResponse {
+  /** The topic has just been promoted to an interest. */
+  promoted: boolean;
+  profile: Profile;
 }
 
 /** GET /api/issues/today?date=YYYY-MM-DD */

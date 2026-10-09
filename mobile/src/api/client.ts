@@ -8,6 +8,8 @@ import type {
   ChatRequest,
   PinDto,
   PinsResponse,
+  SignalKind,
+  SignalResponse,
   CreateDeckRequest,
   Deck,
   ReaderCard,
@@ -134,6 +136,7 @@ export const api = {
   signIn: (body: { email: string; password: string }) => request<AuthResponse>('POST', '/api/auth/signin', body),
   me: () => request<{ account: Account | null }>('GET', '/api/auth/me'),
   pins: () => request<PinsResponse>('GET', '/api/pins'),
+  signal: (topic: string, kind: SignalKind) => request<SignalResponse>('POST', '/api/signals', { topic, kind }),
   savePin: (pin: PinDto) => request<void>('PUT', '/api/pins', pin),
   deletePin: (id: string) => request<void>('DELETE', `/api/pins/${encodeURIComponent(id)}`),
 

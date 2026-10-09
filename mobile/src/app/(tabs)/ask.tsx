@@ -12,7 +12,7 @@ export default function AskRoute() {
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; reQ?: string; reA?: string }>();
   const { session } = useSession();
-  const { addDeck, loadToday } = useZine();
+  const { addDeck, loadToday, signal } = useZine();
   const chat = useChatStream();
   const focused = useIsFocused();
   const [cardsBusy, setCardsBusy] = useState(false);
@@ -55,6 +55,7 @@ export default function AskRoute() {
       .createDeck({ from: 'chat', conversationId })
       .then((deck) => {
         addDeck(deck);
+        signal(deck.topic, 'ask');
         void loadToday();
       })
       .catch(() => summarised.current.delete(conversationId));

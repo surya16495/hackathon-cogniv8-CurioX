@@ -41,6 +41,7 @@ interface ZineValue {
   addDeck: (d: Deck) => void;
   isRead: (id: string) => boolean;
   markRead: (id: string) => void;
+  signal: (topic: string | undefined, kind: 'read' | 'ask' | 'talk') => void;
   /** The deck most recently finished, so Home can draw its tick in. Cleared once shown. */
   fresh: string | null;
   clearFresh: () => void;
@@ -155,6 +156,12 @@ export function ZineProvider({ children }: { children: ReactNode }) {
     setFresh(id);
   }, []);
 
+  /** Reading a deck counts towards its subject; a few reads make it an interest. */
+  const signal = useCallback((topic: string | undefined, kind: 'read' | 'ask' | 'talk') => {
+    if (!topic || topic === 'Today') return;
+    api.signal(topic, kind).catch(() => undefined);
+  }, []);
+
   const togglePin = useCallback((p: Pin) => {
     setPins((list) => {
       const had = list.some((x) => x.id === p.id);
@@ -165,7 +172,11 @@ export function ZineProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const order = useMemo(() => (today ? [today.issue.lead.id, ...today.issue.stories.map((s) => s.id)] : []), [today]);
+  const order = useMemo(() => {
+    if (!today) return [];
+    const rest = today.issue.stories.map((s) => s.id).filter((id) => !today.issue.featured.includes(id));
+    return [...today.issue.featured, ...rest];
+  }, [today]);
 
   const value = useMemo<ZineValue>(() => {
     const isRead = (id: string) => read.includes(id);
@@ -179,6 +190,7 @@ export function ZineProvider({ children }: { children: ReactNode }) {
       addDeck: (d) => remember([d]),
       isRead,
       markRead,
+      signal,
       fresh,
       clearFresh: () => setFresh(null),
       pins,
@@ -193,7 +205,7 @@ export function ZineProvider({ children }: { children: ReactNode }) {
         return id ? decks[id] ?? null : null;
       },
     };
-  }, [today, status, error, loadToday, decks, fetchDeck, remember, read, markRead, fresh, pins, togglePin, order]);
+  }, [today, status, error, loadToday, decks, fetchDeck, remember, read, markRead, signal, fresh, pins, togglePin, order]);
 
   return <ZineContext.Provider value={value}>{children}</ZineContext.Provider>;
 }

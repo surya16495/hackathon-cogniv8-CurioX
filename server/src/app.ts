@@ -19,6 +19,7 @@ import { learnRouter } from './routes/learn';
 import { voiceRouter } from './routes/voice';
 import { authRouter } from './routes/auth';
 import { pinsRouter } from './routes/pins';
+import { signalsRouter } from './routes/signals';
 import { decksRouter, issuesRouter, talkRouter } from './routes/issues';
 
 export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SECRET?: string }, services: Services): Express {
@@ -57,6 +58,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SE
   app.use('/api/session', deviceSession, sessionRouter());
   app.use('/api/auth', deviceSession, authRouter(authSecret));
   app.use('/api/pins', deviceSession, pinsRouter());
+  app.use('/api/signals', deviceSession, signalsRouter());
   app.use('/api/onboarding', deviceSession, onboardingRouter(services));
   app.use('/api/profile', deviceSession, profileRouter());
   app.use('/api/topics', deviceSession, topicsRouter(services));

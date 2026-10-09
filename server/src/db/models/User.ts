@@ -56,6 +56,8 @@ const userSchema = new Schema(
     onboarding: { type: onboardingSchema, default: () => ({}) },
     /** The last issue number handed out ("No. 14"); decks from chats and talks take numbers too. */
     issueCount: { type: Number, default: 0, min: 0 },
+    /** What the reader has shown interest in by reading, asking and talking; a high score becomes an interest. */
+    interestSignals: { type: [{ _id: false, topic: { type: String, required: true }, score: { type: Number, default: 0 }, lastAt: { type: Date } }], default: [] },
   },
   { timestamps: true },
 );

@@ -321,10 +321,9 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
               lineHeight: hasSlips ? 18 : 30,
               letterSpacing: -0.6,
               color: paper.ink,
-              backgroundColor: paper.yellow,
+              // No box behind the words: the blob itself is the button.
               paddingHorizontal: 8,
               paddingVertical: 2,
-              borderRadius: 4,
               textAlign: 'center',
               marginRight: hasSlips ? 30 : 44,
               marginBottom: hasSlips ? 46 : 64,

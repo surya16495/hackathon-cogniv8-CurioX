@@ -23,6 +23,7 @@ import {
 } from '@curiox/shared';
 import { DeckModel, IssueModel, User, toDeck, toDeckSummary, type DeckDoc, type UserDoc } from '../../db/models';
 import { CHAT_DECK_PROMPT, LEAD_DECK_PROMPT, STORY_DECKS_PROMPT } from '../../prompts/issues';
+import { TalkSession } from '../../db/models';
 import { profileSummary } from '../../prompts/persona';
 import { describeError } from '../../utils/errors';
 import { truncate } from '../../utils/async';
@@ -30,6 +31,7 @@ import type { LlmService } from '../llm';
 import type { SearchService } from '../search';
 import { userProfile } from '../onboarding/steps';
 import { DEMO_TAG, demoLead, demoStories, type DeckDraft } from './demo';
+import { RELATED_TOPICS_PROMPT } from '../../prompts/issues';
 
 const summaryOf = (raw: unknown, title: string): string =>
   typeof raw === 'string' && raw.trim() ? truncate(raw.trim(), 320) : `That was ${truncate(title, 60)}. Swipe back any time to go over it again.`;
@@ -190,22 +192,29 @@ const looseStories = z.union([z.object({ stories: storyList }), storyList.transf
 
 interface StoryItem {
   item: number;
+  /** The interest, or "" in discover mode (the model names the subject). */
   topic: string;
+  /** For an adjacent topic: the interest it is related to. */
+  relatedTo?: string;
   sources: Source[];
 }
 
 export function assembleStories(raw: { stories: Record<string, any>[] }, items: StoryItem[]): (DeckDraft & { sources: Source[] })[] {
   const out: (DeckDraft & { sources: Source[] })[] = [];
+  const used = new Set<number>();
   for (const s of raw.stories) {
     const item = items.find((i) => i.item === Number(s.item));
-    if (!item || out.some((o) => o.topic === item.topic) || typeof s.title !== 'string' || !s.title.trim()) continue;
+    if (!item || used.has(item.item) || typeof s.title !== 'string' || !s.title.trim()) continue;
+    used.add(item.item);
     const ref = sourceRef(pickSource(item.sources, s.sourceIndex) ?? item.sources[0]);
     const raw = (Array.isArray(s.cards) ? s.cards : []).slice(0, 4);
     const cards = validCards(raw.map((c: any, i: number) => storyCard(c, ref, i, s.art)));
     if (cards.length < 2) continue;
+    const subject = typeof s.topic === 'string' && s.topic.trim() ? truncate(s.topic.trim(), 40) : '';
     out.push({
       title: truncate(s.title.trim(), 80),
-      topic: item.topic,
+      topic: item.topic || subject || 'Today',
+      relatedTo: item.relatedTo ?? '',
       art: toArtKey(s.art ?? (cards[0] as { art?: string }).art),
       cards,
       summary: summaryOf(s.summary, s.title),
@@ -253,57 +262,151 @@ async function findVideo(query: string, search: SearchService): Promise<Video | 
 interface Drafts {
   lead: DeckDraft & { sources: Source[] };
   stories: (DeckDraft & { sources: Source[] })[];
+  /** Carousel order among `stories` (the lead is always first): up to FEATURED - 1 of them. */
+  featured: number[];
   quiet: string[];
+  discover: boolean;
   provider: Provider;
 }
 
-export async function draftIssue(profile: Profile, services: IssueServices): Promise<Drafts> {
+/** How many decks "Today for you" shows, lead included. */
+export const FEATURED = 5;
+/** At least this many stories under "Also in this issue" when the interests allow. */
+const ALSO_MIN = 3;
+const MAX_STORIES = 9;
+
+export interface DraftContext {
+  /** Topics from the reader's recent talks, newest first, not already interests. */
+  talkTopics?: string[];
+}
+
+const relatedSchema = z.object({ topics: z.array(z.object({ topic: z.string().trim().min(2).max(60), because: z.string().trim().max(80).default('') })).min(1).max(8) });
+
+async function newsFor(topic: string, services: IssueServices, max = 4): Promise<Source[]> {
+  try {
+    const { sources, origin } = await services.search.search(`latest ${topic} news`, { topic: 'news', days: 3, max });
+    return origin === 'demo' ? [] : sources;
+  } catch (err) {
+    console.warn(`[issues] news search failed for ${topic} (${describeError(err)})`);
+    return [];
+  }
+}
+
+/** Adjacent topics the reader would probably enjoy, each tied to the interest it comes from. */
+async function relatedTopics(profile: Profile, llm: LlmService): Promise<{ topic: string; because: string }[]> {
+  if (!profile.interests.length) return [];
+  const { data } = await llm.completeJson(
+    { system: RELATED_TOPICS_PROMPT, messages: [{ role: 'user', content: `The reader follows: ${profile.interests.join(', ')}` }], temperature: 0.8, maxOutputTokens: 500, timeoutMs: 8000 },
+    relatedSchema.nullable(),
+    () => null,
+  );
+  const lower = new Set(profile.interests.map((i) => i.toLowerCase()));
+  return (data?.topics ?? []).filter((t) => !lower.has(t.topic.toLowerCase())).slice(0, 6);
+}
+
+async function writeStories(profile: Profile, items: StoryItem[], services: IssueServices): Promise<{ stories: (DeckDraft & { sources: Source[] })[]; provider: Provider }> {
+  if (!items.length) return { stories: [], provider: 'demo' };
+  // Five items per model call keeps each reply inside the free tiers' token budgets.
+  const chunks: StoryItem[][] = [];
+  for (let i = 0; i < items.length; i += 5) chunks.push(items.slice(i, i + 5));
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      services.llm.completeJson(
+        {
+          system: STORY_DECKS_PROMPT,
+          messages: [{
+            role: 'user',
+            content: [
+              learnerBlock(profile),
+              ...chunk.map((it) => `ITEM ${it.item}: ${it.topic ? `the reader's interest "${it.topic}"` : it.relatedTo ? `an adjacent topic (because they follow "${it.relatedTo}")` : "one of today's top stories"}\n${sourcesBlock(it.sources)}`),
+            ].join('\n\n'),
+          }],
+          tier: 'main',
+          temperature: 0.7,
+          maxOutputTokens: 4500,
+          timeoutMs: 45_000,
+        },
+        looseStories.nullable(),
+        () => null,
+      ),
+    ),
+  );
+  const stories = results.flatMap((r) => (r.data ? assembleStories(r.data, items) : []));
+  const provider = results.find((r) => r.data)?.provider ?? 'demo';
+  return { stories, provider };
+}
+
+export async function draftIssue(profile: Profile, services: IssueServices, ctx: DraftContext = {}): Promise<Drafts> {
   const interests = profile.interests.slice(0, MAX_TOPICS);
+  const discover = interests.length === 0;
   const demo = (): Drafts => {
-    const { stories, quiet } = demoStories(interests);
-    return { lead: { ...demoLead(interests), sources: [] }, stories: stories.map((s) => ({ ...s, sources: [] })), quiet, provider: 'demo' };
+    const { stories, quiet } = demoStories(interests.length ? interests : ['Artificial intelligence', 'Cricket', 'Space', 'Personal finance']);
+    const list = stories.map((s) => ({ ...s, relatedTo: '', sources: [] as Source[] }));
+    return { lead: { ...demoLead(interests), relatedTo: '', sources: [] }, stories: list, featured: list.map((_, i) => i).slice(0, FEATURED - 1), quiet, discover, provider: 'demo' };
   };
   if (services.llm.demoMode) return demo();
 
-  // 1. Today's news for each interest.
-  const news = await Promise.all(
-    interests.map(async (topic) => {
-      try {
-        const { sources, origin } = await services.search.search(`latest ${topic} news`, { topic: 'news', days: 3, max: 4 });
-        return { topic, sources: origin === 'demo' ? [] : sources };
-      } catch (err) {
-        console.warn(`[issues] news search failed for ${topic} (${describeError(err)})`);
-        return { topic, sources: [] as Source[] };
-      }
-    }),
-  );
-
-  // 2. The lead: the first interest with news, or an explainer on something they wondered about.
-  const leadNews = news.find((n) => n.sources.length);
-  const leadSources = leadNews?.sources.slice(0, 3) ?? [];
-  const leadSubject = leadNews ? leadNews.topic : profile.curiosities[0] ?? interests[0] ?? 'how AI models work';
-  const videoQuery = leadNews ? leadSources[0]!.title : leadSubject;
-
-  // 3. One short story per interest, from its next-best article.
+  // 1. Candidate stories: the reader's interests, then what they talked about, then adjacent topics.
+  //    A new reader with no interests gets today's top stories instead.
   const items: StoryItem[] = [];
   const quiet: string[] = [];
-  news.forEach((n, i) => {
-    const pool = n === leadNews ? n.sources.slice(1, 3) : n.sources.slice(0, 2);
-    if (pool.length) items.push({ item: i + 1, topic: n.topic, sources: pool.map((s, k) => ({ ...s, id: k + 1 })) });
-    else if (n !== leadNews) quiet.push(n.topic);
-  });
+  let leadSources: Source[] = [];
+  let leadTopic = '';
+  let leadLine = '';
+  const addItem = (topic: string, sources: Source[], relatedTo = '') => {
+    if (!sources.length || items.length >= MAX_STORIES) return;
+    items.push({ item: items.length + 1, topic, relatedTo, sources: sources.map((s, k) => ({ ...s, id: k + 1 })) });
+  };
 
+  if (discover) {
+    // A spread of today's top stories, two per area, so a new reader sees variety and what they
+    // open tells CurioX what they like.
+    const areas = ['world', 'technology', 'science', 'sports', 'business'];
+    const perArea = await Promise.all(areas.map((a) => services.search.search(`top ${a} news stories today`, { topic: 'news', days: 1, max: 2 }).then((r) => (r.origin === 'demo' ? [] : r.sources)).catch(() => [] as Source[])));
+    const seen = new Set<string>();
+    const sources: Source[] = [];
+    for (let i = 0; i < 2; i++) for (const list of perArea) { const src = list[i]; if (src && !seen.has(src.url)) { seen.add(src.url); sources.push(src); } }
+    if (!sources.length) return demo();
+    leadSources = sources.slice(0, 1);
+    leadLine = "TODAY'S TOP STORY (the reader is new; no interests known yet):";
+    for (const src of sources.slice(1, MAX_STORIES + 1)) addItem('', [src]);
+  } else {
+    const news = await Promise.all(interests.map(async (topic) => ({ topic, sources: await newsFor(topic, services) })));
+    const leadNews = news.find((n) => n.sources.length);
+    for (const n of news) {
+      if (n === leadNews) addItem(n.topic, n.sources.slice(1, 3));
+      else if (n.sources.length) addItem(n.topic, n.sources.slice(0, 2));
+      else quiet.push(n.topic);
+    }
+    // Nothing new on what they follow: the things they talked about carry the issue.
+    const talkTopics = (ctx.talkTopics ?? []).slice(0, 3);
+    const talkNews = talkTopics.length && (!leadNews || items.length < ALSO_MIN) ? await Promise.all(talkTopics.map(async (t) => ({ topic: t, sources: await newsFor(t, services, 2) }))) : [];
+    for (const n of talkNews) addItem(n.topic, n.sources.slice(0, 2), 'your talks');
+    // Adjacent topics fill the carousel and give "Also in this issue" something related.
+    if (items.length < FEATURED - 1 + ALSO_MIN) {
+      const related = await relatedTopics(profile, services.llm);
+      const relatedNews = await Promise.all(related.map(async (r) => ({ ...r, sources: await newsFor(r.topic, services, 2) })));
+      for (const n of relatedNews) addItem(n.topic, n.sources.slice(0, 2), n.because || interests[0]!);
+    }
+    const leadFrom = leadNews ?? (talkNews.find((n) => n.sources.length) as { topic: string; sources: Source[] } | undefined);
+    if (leadFrom) {
+      leadSources = leadFrom.sources.slice(0, 3);
+      leadTopic = leadFrom.topic;
+      leadLine = leadNews ? `TODAY'S STORY, from the reader's interest "${leadTopic}":` : `TODAY'S STORY, about something the reader talked about recently ("${leadTopic}"):`;
+      if (!leadNews) items.splice(items.findIndex((it) => it.topic === leadTopic), 1);
+    } else {
+      const subject = profile.curiosities[0] ?? interests[0] ?? 'how AI models work';
+      leadTopic = interests[0] ?? '';
+      leadLine = `NO NEWS TODAY. Explain: ${subject}`;
+    }
+  }
+  items.forEach((it, i) => (it.item = i + 1));
+
+  // 2. Write the lead and the stories.
   const leadTask = services.llm.completeJson(
     {
       system: LEAD_DECK_PROMPT,
-      messages: [{
-        role: 'user',
-        content: [
-          learnerBlock(profile, !leadNews),
-          leadNews ? `TODAY'S STORY, from the reader's interest "${leadNews.topic}":` : `NO NEWS TODAY. Explain: ${leadSubject}`,
-          sourcesBlock(leadSources),
-        ].join('\n\n'),
-      }],
+      messages: [{ role: 'user', content: [learnerBlock(profile, !leadSources.length), leadLine, sourcesBlock(leadSources)].join('\n\n') }],
       tier: 'main',
       temperature: 0.7,
       maxOutputTokens: 6000,
@@ -312,31 +415,8 @@ export async function draftIssue(profile: Profile, services: IssueServices): Pro
     looseLead.nullable(),
     () => null,
   );
-  const storiesTask = items.length
-    ? services.llm.completeJson(
-        {
-          system: STORY_DECKS_PROMPT,
-          messages: [{
-            role: 'user',
-            content: [
-              learnerBlock(profile),
-              ...items.map((it) => `ITEM ${it.item}: the reader's interest "${it.topic}"\n${sourcesBlock(it.sources)}`),
-            ].join('\n\n'),
-          }],
-          tier: 'main',
-          temperature: 0.7,
-          maxOutputTokens: 6000,
-          timeoutMs: 45_000,
-        },
-        looseStories.nullable(),
-        () => null,
-      )
-    : Promise.resolve({ data: null, provider: 'demo' as Provider });
-
-  const [leadRes, storiesRes] = await Promise.all([leadTask, storiesTask]);
-  // The video is looked up from the deck's own headline, which says what the story is about
-  // far better than a news site's headline does.
-  const video = await findVideo(leadRes.data?.title ?? videoQuery, services.search).catch(() => null);
+  const [leadRes, written] = await Promise.all([leadTask, writeStories(profile, items, services)]);
+  const video = await findVideo(leadRes.data?.title ?? leadSources[0]?.title ?? leadTopic, services.search).catch(() => null);
 
   const lead = leadRes.data ? assembleLead(leadRes.data, leadSources, video) : null;
   if (!lead) {
@@ -344,13 +424,22 @@ export async function draftIssue(profile: Profile, services: IssueServices): Pro
     if (leadRes.data && process.env.NODE_ENV !== 'test') console.warn(`[issues] lead JSON: ${truncate(JSON.stringify(leadRes.data), 1500)}`);
     return demo();
   }
+  const leadSubject = typeof leadRes.data?.topic === 'string' && leadRes.data.topic.trim() ? truncate(String(leadRes.data.topic).trim(), 40) : '';
 
-  const stories = storiesRes.data ? assembleStories(storiesRes.data, items) : [];
-  for (const it of items) if (!stories.some((s) => s.topic === it.topic)) quiet.push(it.topic);
+  const stories = written.stories;
+  for (const it of items) if (it.topic && !it.relatedTo && !stories.some((st) => st.topic === it.topic)) quiet.push(it.topic);
+
+  // 3. The carousel: the lead, then the reader's own interests (and, for a new reader, the top stories), then related ones.
+  const own = stories.map((st, i) => ({ st, i })).filter(({ st }) => !st.relatedTo);
+  const rel = stories.map((st, i) => ({ st, i })).filter(({ st }) => st.relatedTo);
+  const featured = [...own, ...rel].slice(0, FEATURED - 1).map(({ i }) => i);
+
   return {
-    lead: { ...lead, topic: leadNews?.topic ?? interests[0] ?? '', sources: leadSources },
+    lead: { ...lead, topic: discover ? leadSubject || 'Today' : leadTopic, relatedTo: '', sources: leadSources },
     stories,
+    featured,
     quiet: interests.filter((i) => quiet.includes(i)),
+    discover,
     provider: leadRes.provider,
   };
 }
@@ -364,7 +453,7 @@ async function nextNumber(userId: unknown): Promise<number> {
 function saveDeck(userId: unknown, no: number, kind: DeckKind, tag: string, d: DeckDraft & { sources?: Source[] }, provider: Provider, date: string | null) {
   return DeckModel.create({
     userId, no, kind, tag, date, provider,
-    title: d.title, topic: d.topic, art: d.art, cards: d.cards, summary: d.summary, teach: d.teach, quiz: d.quiz, sources: d.sources ?? [],
+    title: d.title, topic: d.topic, relatedTo: d.relatedTo ?? '', art: d.art, cards: d.cards, summary: d.summary, teach: d.teach, quiz: d.quiz, sources: d.sources ?? [],
   });
 }
 
@@ -375,12 +464,16 @@ async function loadIssue(userId: unknown, date: string): Promise<Issue | null> {
   const byId = new Map(decks.map((d) => [d._id.toString(), d]));
   const lead = byId.get(issue.leadId.toString());
   if (!lead) return null;
+  const stories = issue.storyIds.map((id) => byId.get(id.toString())).filter((d): d is DeckDoc => !!d).map(toDeck);
+  const featuredIds = issue.featuredIds?.length ? issue.featuredIds.map((id) => id.toString()) : stories.slice(0, FEATURED - 1).map((d) => d.id);
   return {
     no: issue.no,
     date,
     lead: toDeck(lead),
-    stories: issue.storyIds.map((id) => byId.get(id.toString())).filter((d): d is DeckDoc => !!d).map(toDeck),
+    stories,
+    featured: [lead._id.toString(), ...featuredIds.filter((id) => stories.some((d) => d.id === id))],
     quiet: issue.quiet ?? [],
+    discover: !!issue.discover,
   };
 }
 
@@ -391,18 +484,27 @@ async function backIssues(userId: unknown, exclude: string[]) {
   return decks.map(toDeckSummary);
 }
 
+/** Topics from the reader's recent talks that are not interests yet, newest first. */
+async function recentTalkTopics(user: UserDoc): Promise<string[]> {
+  const lower = new Set(userProfile(user).interests.map((i) => i.toLowerCase()));
+  const talks = await TalkSession.find({ userId: user._id }).sort({ createdAt: -1 }).limit(8).select('topic');
+  return [...new Set(talks.map((t) => t.topic.trim()).filter((t) => t && !lower.has(t.toLowerCase())))];
+}
+
 async function buildIssue(user: UserDoc, date: string, services: IssueServices): Promise<Issue> {
-  const drafts = await draftIssue(userProfile(user), services);
+  const drafts = await draftIssue(userProfile(user), services, { talkTopics: await recentTalkTopics(user) });
   // Someone else may have finished first while the model was writing.
   const existing = await loadIssue(user._id, date);
   if (existing) return existing;
 
   const no = await nextNumber(user._id);
   const demo = drafts.provider === 'demo';
+  const tagFor = (d: DeckDraft) => (demo ? DEMO_TAG : d.relatedTo === 'your talks' ? 'from your talks' : d.relatedTo ? `because you follow ${d.relatedTo}` : 'today');
   const lead = await saveDeck(user._id, no, demo ? 'demo' : 'lead', demo ? DEMO_TAG : 'today', drafts.lead, drafts.provider, date);
-  const stories = await Promise.all(drafts.stories.map((s) => saveDeck(user._id, no, 'story', demo ? DEMO_TAG : 'today', s, drafts.provider, date)));
+  const stories = await Promise.all(drafts.stories.map((s) => saveDeck(user._id, no, 'story', tagFor(s), s, drafts.provider, date)));
+  const featuredIds = drafts.featured.map((i) => stories[i]?._id).filter((id): id is NonNullable<typeof id> => !!id);
   try {
-    await IssueModel.create({ userId: user._id, date, no, leadId: lead._id, storyIds: stories.map((s) => s._id), quiet: drafts.quiet });
+    await IssueModel.create({ userId: user._id, date, no, leadId: lead._id, storyIds: stories.map((s) => s._id), featuredIds, quiet: drafts.quiet, discover: drafts.discover });
   } catch (err) {
     // A duplicate key means a parallel request saved the issue first: drop ours, use theirs.
     if ((err as { code?: number }).code !== 11000) throw err;
@@ -411,7 +513,7 @@ async function buildIssue(user: UserDoc, date: string, services: IssueServices):
     if (winner) return winner;
     throw err;
   }
-  return { no, date, lead: toDeck(lead), stories: stories.map(toDeck), quiet: drafts.quiet };
+  return { no, date, lead: toDeck(lead), stories: stories.map(toDeck), featured: [lead._id.toString(), ...featuredIds.map((id) => id.toString())], quiet: drafts.quiet, discover: drafts.discover };
 }
 
 const inflight = new Map<string, Promise<Issue>>();
@@ -461,7 +563,8 @@ export async function deckFromConversation(user: UserDoc, conversationId: string
   let draft: DeckDraft & { sources: Source[] };
   const cards = data ? validCards(data.cards.slice(0, 4).map((c: any, i: number) => ({ kind: 'simple', h: c?.h, body: c?.body, art: c?.art, note: '', source: i === 0 ? sourceRef(sources[0]) : null }))) : [];
   if (data && cards.length >= 2) {
-    draft = { title: truncate(data.title, 80), topic: '', art: toArtKey(data.art), cards, summary: summaryOf(data.summary, data.title), teach: validTeach(data.teach, data.title), quiz: validQuiz(data.quiz, 3), sources };
+    const subject = typeof data.topic === 'string' && data.topic.trim() ? truncate(data.topic.trim(), 40) : '';
+    draft = { title: truncate(data.title, 80), topic: subject, art: toArtKey(data.art), cards, summary: summaryOf(data.summary, data.title), teach: validTeach(data.teach, data.title), quiz: validQuiz(data.quiz, 3), sources };
   } else {
     // No model: cut the last answer into cards, paragraph by paragraph.
     const paras = transcript.split(/\n{2,}/).map((p) => p.replace(/^(CurioX|Learner):\s*/, '').replace(/[*_#>`]/g, '').trim()).filter((p) => p.length > 30);
@@ -471,7 +574,7 @@ export async function deckFromConversation(user: UserDoc, conversationId: string
     };
   }
   if (existing) {
-    existing.set({ title: draft.title, art: draft.art, cards: draft.cards, summary: draft.summary, teach: draft.teach, quiz: draft.quiz, sources: draft.sources, provider: data ? provider : 'demo', messageCount });
+    existing.set({ title: draft.title, topic: draft.topic, art: draft.art, cards: draft.cards, summary: draft.summary, teach: draft.teach, quiz: draft.quiz, sources: draft.sources, provider: data ? provider : 'demo', messageCount });
     return toDeck(await existing.save());
   }
   const no = await nextNumber(user._id);
