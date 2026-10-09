@@ -1,0 +1,51 @@
+# Render Blueprint: creates the CurioX API as one free web service.
+# In Render: New + → Blueprint → pick this repo. Secrets are entered in the dashboard (sync: false),
+# never here. See docs/DEPLOY.md for the step-by-step.
+services:
+  - type: web
+    name: curiox-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: npm ci && npm run build -w server
+    startCommand: npm start -w server
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: PORT
+        value: 4000
+      - key: MONGODB_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: LLM_CHAT_ORDER
+        value: groq,gemini
+      - key: GEMINI_MODEL_MAIN
+        value: gemini-3.8-flash
+      - key: GEMINI_MODEL_LITE
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_THINKING_MAIN
+        value: low
+      - key: GEMINI_THINKING_LITE
+        value: minimal
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: GROQ_STT_MODEL
+        value: whisper-large-v3-turbo
+      - key: DEMO_MODE
+        value: "false"
+      - key: CORS_ORIGIN
+        value: http://localhost:8081
+      - key: LLM_TIMEOUT_MS
+        value: "30000"
+      - key: SEARCH_CACHE_TTL_HOURS
+        value: "6"

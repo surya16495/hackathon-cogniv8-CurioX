@@ -46,11 +46,15 @@ npm run dev:mobile              # terminal 2: Expo; scan the QR code with Expo G
 
 ## Deployment
 
-- **API**: Render free web service (build `npm install && npm run build -w server`, start `npm start -w server`, env vars from `.env.example`).
-- **Android APK**: `cd mobile && npx eas-cli@latest build --platform android --profile preview` (needs a free Expo account; set `EXPO_PUBLIC_API_URL` to the Render URL). The free EAS queue can take over an hour, so start early.
-- **iPhone**: judges use Expo Go, or an installable build with an Apple Developer account.
-- Database: MongoDB Atlas M0 (`curiox_dev`, `curiox_prod`).
+Step by step in [docs/DEPLOY.md](docs/DEPLOY.md). In short: the API runs on Render from the `render.yaml` blueprint (secrets entered in the dashboard), the database is MongoDB Atlas, and the Android app is an APK built with `npx eas-cli@latest build --platform android --profile preview` from `mobile/` (the API URL is set in `mobile/eas.json`). iPhones use Expo Go.
 
 ## Team
 
-Team cogniv8. <!-- names and lanes -->
+Team cogniv8, Apty Hackathon 2026.
+
+| Name | Lane |
+| --- | --- |
+| Surya | Product, mobile app, backend |
+| _add teammate_ | _lane_ |
+
+<!-- Replace the rows above with the team's names and what each person owned. -->
