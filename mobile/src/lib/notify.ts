@@ -1,15 +1,21 @@
 // The top update as a notification: "Issue No. 14 is out · <lead title>", once per issue per device.
 // Local notifications only (no push server), which is all Expo Go allows; tapping one opens the deck.
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { KEYS, storage } from './storage';
 
 type Notifications = typeof import('expo-notifications');
 
 let mod: Notifications | null | undefined;
-/** expo-notifications is native-only; on web the whole feature is quietly skipped. */
+/**
+ * expo-notifications is native-only, so web skips the feature. Expo Go on Android skips it too:
+ * since SDK 53 the module raises "Android Push notifications … removed from Expo Go" as soon as
+ * it is loaded there, even for local notifications. iOS Expo Go and real builds keep it.
+ */
 function load(): Notifications | null {
   if (mod !== undefined) return mod;
-  if (Platform.OS === 'web') return (mod = null);
+  const expoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  if (Platform.OS === 'web' || (Platform.OS === 'android' && expoGo)) return (mod = null);
   try {
     mod = require('expo-notifications') as Notifications;
     mod.setNotificationHandler({
