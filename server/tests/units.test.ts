@@ -132,6 +132,13 @@ describe('loadEnv', () => {
     expect(env.GEMINI_MODEL_MAIN).toBe('gemini-3.8-flash');
   });
 
+  it('numbered key variables join the comma list (one value per field on Render)', () => {
+    const env = loadEnv({ MONGODB_URI: 'x', GROQ_API_KEY: 'g1', GROQ_API_KEY_2: ' g2 ', GROQ_API_KEY_3: 'g3', GEMINI_API_KEY_2: 'm2', TAVILY_API_KEY: 't1,t2', TAVILY_API_KEY_2: '' });
+    expect(env.GROQ_API_KEY).toBe('g1,g2,g3');
+    expect(env.GEMINI_API_KEY).toBe('m2');
+    expect(env.TAVILY_API_KEY).toBe('t1,t2');
+  });
+
   it('LLM_CHAT_ORDER ignores unknown names and never ends up empty', () => {
     expect(loadEnv({ MONGODB_URI: 'x', LLM_CHAT_ORDER: 'Groq, gemini, openai, groq' }).LLM_CHAT_ORDER).toEqual(['groq', 'gemini']);
     expect(loadEnv({ MONGODB_URI: 'x', LLM_CHAT_ORDER: 'typo' }).LLM_CHAT_ORDER).toEqual(['groq', 'gemini']);

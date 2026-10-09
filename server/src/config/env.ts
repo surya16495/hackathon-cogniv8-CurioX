@@ -52,8 +52,28 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/** Providers that take several keys: GROQ_API_KEY=k1,k2 or GROQ_API_KEY_2=k2, GROQ_API_KEY_3=k3 … */
+const POOLED_KEYS = ['GEMINI_API_KEY', 'GROQ_API_KEY', 'TAVILY_API_KEY'] as const;
+
+/**
+ * Some dashboards (Render's blueprint form) take one value per variable, so a second account's key
+ * can also go in `<NAME>_2`, `<NAME>_3` … up to `_9`. They are folded into the comma list.
+ */
+function foldNumberedKeys(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out = { ...source };
+  for (const name of POOLED_KEYS) {
+    const extra: string[] = [];
+    for (let n = 2; n <= 9; n++) {
+      const v = source[`${name}_${n}`]?.trim();
+      if (v) extra.push(v);
+    }
+    if (extra.length) out[name] = [source[name]?.trim(), ...extra].filter(Boolean).join(',');
+  }
+  return out;
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.safeParse(foldNumberedKeys(source));
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`);
     throw new Error(`Invalid environment configuration:\n${lines.join('\n')}`);

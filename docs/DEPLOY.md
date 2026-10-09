@@ -28,7 +28,7 @@ Never paste keys or passwords into chat or into a commit. `server/.env` and `mob
 The repo has a `render.yaml` blueprint, so Render creates the service with every setting filled in.
 
 1. Render dashboard → **New +** → **Blueprint** → connect the GitHub repo `surya16495/hackathon-cogniv8-CurioX` → **Apply**.
-2. Render asks for the secret values: paste `MONGODB_URI` (the new one), `GROQ_API_KEY`, `GEMINI_API_KEY`, `TAVILY_API_KEY`. Comma-separated keys from several accounts work here exactly as in `.env`. `AUTH_SECRET` is generated for you.
+2. Render asks for the secret values: paste `MONGODB_URI` (the new one), `GROQ_API_KEY`, `GEMINI_API_KEY`, `TAVILY_API_KEY`. The form takes one key per field, so the second account's keys go in `GROQ_API_KEY_2`, `GEMINI_API_KEY_2`, `TAVILY_API_KEY_2` (leave a `_2` field empty if you only have one key). The server folds them into one pool and switches keys when one is rate-limited. `AUTH_SECRET` is generated for you. More keys later: Environment tab → Add → `GROQ_API_KEY_3` and so on.
 3. Wait for the first deploy (3 to 5 minutes). Open `https://curiox-api.onrender.com/api/health` and check for `"status":"ok"` and `"db":"connected"`.
 4. If Render gave the service a different URL (names are global), copy it: you need it in step 3.
 

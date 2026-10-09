@@ -19,11 +19,19 @@ services:
         value: 4000
       - key: MONGODB_URI
         sync: false
+      # One key per field. A second account's key goes in the _2 variable (and _3 … _9 if needed);
+      # the server folds them into one pool and rotates when a key is rate-limited.
       - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_API_KEY_2
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_API_KEY_2
+        sync: false
       - key: TAVILY_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY_2
         sync: false
       - key: AUTH_SECRET
         generateValue: true
