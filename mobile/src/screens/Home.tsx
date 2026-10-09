@@ -9,7 +9,7 @@ import { Cut, Sticker } from '../ui/Art';
 import { Icon } from '../ui/Icon';
 import { AppIcon } from './Opening';
 import { CopierSkeleton } from './Status';
-import { EmptyCard, Ground, IconBtn, Mini, Note, Panel, Stamp, Staple, Strip, T, Tape, Tickbox, useReduceMotion } from '../ui/kit';
+import { EmptyCard, Ground, IconBtn, Mini, Note, Panel, PasteIn, Stamp, Staple, Strip, T, Tape, Tickbox, useReduceMotion } from '../ui/kit';
 import { curves, fonts, paper, type, useGround } from '../ui/tokens';
 
 export interface HomeProps {
@@ -32,30 +32,6 @@ const cardsLabel = (d: Deck | DeckSummary) => `${'cardCount' in d ? d.cardCount 
 const slap = Easing.bezier(...curves.slap);
 
 /** Pastes its children down: a short drop, a slight twist, settling flat. */
-function PasteIn({ delay = 0, children, style }: { delay?: number; children: React.ReactNode; style?: object }) {
-  const reduce = useReduceMotion();
-  const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(a, { toValue: 1, duration: reduce ? 0 : 420, delay: reduce ? 0 : delay, easing: slap, useNativeDriver: true }).start();
-  }, [a, delay, reduce]);
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity: a,
-          transform: [
-            { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) },
-            { rotate: a.interpolate({ inputRange: [0, 1], outputRange: ['-2deg', '0deg'] }) },
-            { scale: a.interpolate({ inputRange: [0, 1], outputRange: [1.04, 1] }) },
-          ],
-        },
-      ]}
-    >
-      {children}
-    </Animated.View>
-  );
-}
 
 function Banner({ show, title, body, onOpen, onClose }: { show: boolean; title: string; body: string; onOpen: () => void; onClose: () => void }) {
   const g = useGround();

@@ -1,7 +1,7 @@
 // Welcome, then six chip questions. Questions 2 to 6 follow the interests picked in question 1:
 // tailored on the phone straight away, then refined by the server for anything it does not know.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   blankReader,
@@ -14,7 +14,7 @@ import { api } from '../api/client';
 import { ChipGroup, withDraft } from '../components/ChipGroup';
 import { ReaderCardView } from '../components/ReaderCard';
 import { Cut } from '../ui/Art';
-import { Btn, Ground, IconBtn, Note, Panel, Pill, T } from '../ui/kit';
+import { Btn, Bump, Ground, IconBtn, Note, Panel, PasteIn, Pill, Pop, SlideIn, T, useReduceMotion } from '../ui/kit';
 
 /** Interests, level, goals, style, tone. What the reader wonders about comes from how they use the app. */
 export const STEPS = 5;
@@ -109,10 +109,32 @@ export function useOnboardFlow(initial?: ReaderCard) {
   return { step, q, ans, questions, draft, setDraft, set, next, skip, back: () => go(Math.max(0, stepRef.current - 1)), go, canNext, start: () => go(1) };
 }
 
+/** The bulb on the welcome page sways gently, like it is hanging from the panel. */
+function Sway({ children }: { children: React.ReactNode }) {
+  const reduce = useReduceMotion();
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduce) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(a, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a, reduce]);
+  return <Animated.View style={{ transform: [{ rotate: a.interpolate({ inputRange: [0, 1], outputRange: ['-4deg', '4deg'] }) }, { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>{children}</Animated.View>;
+}
+
 export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<typeof useOnboardFlow>; saving?: boolean; error?: string | null; onDone: (r: ReaderCard) => void }) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const { step, q, ans } = flow;
+  // Which way the next page comes from: forward slides in from the right, back from the left.
+  const lastStep = useRef(step);
+  const dir = step >= lastStep.current ? 1 : -1;
+  lastStep.current = step;
 
   useEffect(() => {
     scroll.current?.scrollTo({ y: 0, animated: false });
@@ -126,22 +148,28 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
             radius={250}
             style={{ position: 'absolute', right: -150, top: -90, width: 520, height: 520, borderTopLeftRadius: 245, borderTopRightRadius: 275, borderBottomRightRadius: 230, borderBottomLeftRadius: 285 }}
           />
-          <Cut art="bulb" size={190} rotate={8} style={{ position: 'absolute', right: 20, top: insets.top + 66 }} />
+          <View style={{ position: 'absolute', right: 20, top: insets.top + 66 }}>
+            <Pop delay={200}>
+              <Sway>
+                <Cut art="bulb" size={190} rotate={8} />
+              </Sway>
+            </Pop>
+          </View>
           <View style={{ flex: 1 }} />
-          <View style={{ gap: 14, paddingBottom: 8 }}>
+          <PasteIn delay={80} style={{ gap: 14, paddingBottom: 8 }}>
             <T v="word" accessibilityRole="header">
               CurioX
             </T>
             <T v="m" style={{ maxWidth: 220 }}>
               Learn anything in cards made for you.
             </T>
-          </View>
-          <View style={{ marginTop: 22, gap: 10 }}>
+          </PasteIn>
+          <PasteIn delay={260} style={{ marginTop: 22, gap: 10 }}>
             <Btn label="Start" wide onPress={flow.start} />
             <T v="hint" muted>
               Five quick questions. No sign-up.
             </T>
-          </View>
+          </PasteIn>
         </View>
       </Ground>
     );
@@ -152,11 +180,17 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
       <Ground>
         <ScrollView ref={scroll} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 18) }}>
           <View style={{ gap: 18 }}>
-            <T v="l" accessibilityRole="header">
-              Here is what I learned about you
-            </T>
-            <ReaderCardView reader={ans} />
-            <Note arrow>change any of it later under You</Note>
+            <PasteIn>
+              <T v="l" accessibilityRole="header">
+                Here is what I learned about you
+              </T>
+            </PasteIn>
+            <PasteIn delay={160}>
+              <ReaderCardView reader={ans} />
+            </PasteIn>
+            <PasteIn delay={420}>
+              <Note arrow>change any of it later under You</Note>
+            </PasteIn>
           </View>
           <View style={{ flex: 1, minHeight: 24 }} />
           <View style={{ gap: 10 }}>
@@ -175,18 +209,22 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
         <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 6, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 18) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: -12, marginRight: -10, marginBottom: 18 }}>
             <IconBtn name="back" label="Back" onPress={flow.back} />
-            <Pill label={`${step}/${STEPS}`} />
+            <Bump on={step > 0}>
+              <Pill label={`${step}/${STEPS}`} />
+            </Bump>
             <Btn label="Skip" variant="text" onPress={flow.skip} />
           </View>
-          <T v="l" accessibilityRole="header" style={{ marginBottom: 8 }}>
-            {q.q}
-          </T>
-          <T v="hint" muted>
-            {q.hint}
-          </T>
-          <View style={{ marginTop: 20 }}>
-            <ChipGroup key={q.key} q={q} values={ans[q.key]} onChange={flow.set} onDraft={flow.setDraft} onFreeSubmit={() => flow.canNext && flow.next()} />
-          </View>
+          <SlideIn key={step} from={dir * 44}>
+            <T v="l" accessibilityRole="header" style={{ marginBottom: 8 }}>
+              {q.q}
+            </T>
+            <T v="hint" muted>
+              {q.hint}
+            </T>
+            <View style={{ marginTop: 20 }}>
+              <ChipGroup key={q.key} q={q} values={ans[q.key]} onChange={flow.set} onDraft={flow.setDraft} onFreeSubmit={() => flow.canNext && flow.next()} />
+            </View>
+          </SlideIn>
           <View style={{ flex: 1, minHeight: 24 }} />
           <Btn label={step === STEPS ? 'Finish' : 'Next'} wide disabled={!flow.canNext} onPress={flow.next} />
         </ScrollView>

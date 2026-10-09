@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Cut } from '../ui/Art';
-import { Btn, Ground, Note, Panel, Sheet, T } from '../ui/kit';
+import { Btn, Ground, Note, Panel, PasteIn, Pop, Sheet, SlideIn, T } from '../ui/kit';
 import { fonts, paper, type } from '../ui/tokens';
 
 export interface AuthProps {
@@ -58,9 +58,12 @@ export function AuthScreen({ busy, error, onSignUp, onSignIn, onSkip, hasCard }:
                 {mode === 'up' ? 'An account keeps your reader card, issues and pins on every phone.' : 'Sign in and your issues and pins come with you.'}
               </T>
             </View>
-            <Cut art={mode === 'up' ? 'key' : 'wave_hand'} size={96} rotate={8} />
+            <Pop key={mode} delay={120}>
+              <Cut art={mode === 'up' ? 'key' : 'wave_hand'} size={96} rotate={8} />
+            </Pop>
           </View>
 
+          <SlideIn key={mode} from={mode === 'up' ? -36 : 36}>
           <Sheet tape style={{ marginTop: 26, gap: 18 }}>
             {mode === 'up' && <Field label="Name" value={name} onChange={setName} autoComplete="name" />}
             <Field label="Email" value={email} onChange={setEmail} keyboard="email-address" autoComplete="email" />
@@ -68,6 +71,7 @@ export function AuthScreen({ busy, error, onSignUp, onSignIn, onSkip, hasCard }:
             {!!error && <Text style={{ fontFamily: fonts.body, fontSize: 14.5, color: paper.bad }}>{error}</Text>}
             <Btn label={busy ? 'One moment…' : mode === 'up' ? 'Create my account' : 'Sign in'} onYellow wide disabled={!canGo || busy} onPress={go} />
           </Sheet>
+          </SlideIn>
 
           <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
             <T v="hint" muted>
@@ -80,10 +84,12 @@ export function AuthScreen({ busy, error, onSignUp, onSignIn, onSkip, hasCard }:
 
           <View style={{ flex: 1, minHeight: 24 }} />
           {onSkip && (
-            <Panel style={{ padding: 16, gap: 8 }}>
-              <Text style={[type.panelBody, { color: paper.ink }]}>Just looking? You can read without an account; everything stays on this phone.</Text>
-              <Btn label="Skip for now" onYellow onPress={onSkip} />
-            </Panel>
+            <PasteIn delay={300}>
+              <Panel style={{ padding: 16, gap: 8 }}>
+                <Text style={[type.panelBody, { color: paper.ink }]}>Just looking? You can read without an account; everything stays on this phone.</Text>
+                <Btn label="Skip for now" onYellow onPress={onSkip} />
+              </Panel>
+            </PasteIn>
           )}
         </ScrollView>
       </KeyboardAvoidingView>

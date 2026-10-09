@@ -44,6 +44,83 @@ export function useSize(): [{ width: number; height: number }, (e: LayoutChangeE
   return [size, onLayout];
 }
 
+// ---------- motion ----------
+
+const slapCurve = Easing.bezier(...curves.slap);
+
+/** Pasted down from slightly above, a touch askew, then settling flat. */
+export function PasteIn({ delay = 0, children, style }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReduceMotion();
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(a, { toValue: 1, duration: reduce ? 0 : 420, delay: reduce ? 0 : delay, easing: slapCurve, useNativeDriver: true }).start();
+  }, [a, delay, reduce]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        {
+          opacity: a,
+          transform: [
+            { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) },
+            { rotate: a.interpolate({ inputRange: [0, 1], outputRange: ['-2deg', '0deg'] }) },
+            { scale: a.interpolate({ inputRange: [0, 1], outputRange: [1.04, 1] }) },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+/** Pops up from small, like a sticker slapped on. Stagger with `delay`. */
+export function Pop({ delay = 0, children, style }: { delay?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReduceMotion();
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(a, { toValue: 1, duration: reduce ? 0 : 380, delay: reduce ? 0 : delay, easing: slapCurve, useNativeDriver: true }).start();
+  }, [a, delay, reduce]);
+  return (
+    <Animated.View style={[style, { opacity: a, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/** Slides in from the side (give it a `key` so each new page slides). `from` is the pixel offset. */
+export function SlideIn({ from = 40, children, style }: { from?: number; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReduceMotion();
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(a, { toValue: 1, duration: reduce ? 0 : 360, easing: slapCurve, useNativeDriver: true }).start();
+  }, [a, reduce]);
+  return (
+    <Animated.View style={[style, { opacity: a, transform: [{ translateX: a.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/** A little bounce each time `on` turns true: the pressed tab, a fresh count. */
+export function Bump({ on, children, style }: { on: boolean; children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduce = useReduceMotion();
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!on || reduce) return;
+    a.setValue(0);
+    Animated.sequence([
+      Animated.timing(a, { toValue: 1, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(a, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }),
+    ]).start();
+  }, [on, reduce, a]);
+  return (
+    <Animated.View style={[style, { transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] }) }, { translateY: a.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 // ---------- surfaces ----------
 
 /** The textured paper ground every screen sits on. */

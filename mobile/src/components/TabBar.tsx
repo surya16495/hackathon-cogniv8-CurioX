@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { Icon, type IconName } from '../ui/Icon';
 import { Squiggle } from '../ui/Marks';
-import { useReduceMotion } from '../ui/kit';
+import { Bump, useReduceMotion } from '../ui/kit';
 import { paper, type, useGround } from '../ui/tokens';
 
 /** Halftone dots that grow towards one corner, like the blob's shading. */
@@ -91,7 +91,7 @@ export function TabBar({ current, onTab }: { current: TabKey; onTab: (k: TabKey)
             onPress={() => onTab(t.key)}
             style={({ pressed }) => ({ width: 86, height: 58, alignItems: 'center', justifyContent: 'center', gap: t.key === 'talk' ? 5 : 3, marginTop: t.key === 'talk' ? -22 : 0, ...(pressed ? { transform: [{ scale: 0.94 }] } : {}) })}
           >
-            {t.icon ? <Icon name={t.icon} color={g.onGround} rotate={t.key === 'pins' ? 28 : 0} /> : <MiniBlob wobble={on} />}
+            <Bump on={on}>{t.icon ? <Icon name={t.icon} color={g.onGround} rotate={t.key === 'pins' ? 28 : 0} /> : <MiniBlob wobble={on} />}</Bump>
             <Text style={[type.tab, { color: g.onGround }]}>{t.label}</Text>
             {on && (
               // The Talk blob makes that tab taller than its box, so its squiggle sits lower.

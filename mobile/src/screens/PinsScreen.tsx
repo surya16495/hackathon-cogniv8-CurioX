@@ -3,7 +3,7 @@ import { Linking, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PinChip } from '../deck/Cards';
 import type { Pin } from '../hooks/useZine';
-import { EmptyCard, Ground, Mini, Sheet, T } from '../ui/kit';
+import { EmptyCard, Ground, Mini, PasteIn, Sheet, T } from '../ui/kit';
 import { fonts, paper, type } from '../ui/tokens';
 
 export function PinsScreen({ pins, onToggle, onWatch, onOpenToday }: { pins: Pin[]; onToggle: (p: Pin) => void; onWatch: (p: Pin) => void; onOpenToday: () => void }) {
@@ -20,7 +20,8 @@ export function PinsScreen({ pins, onToggle, onWatch, onOpenToday }: { pins: Pin
         {pins.length ? (
           <View style={{ gap: 28, marginBottom: 24 }}>
             {pins.map((p, i) => (
-              <Sheet key={p.id} style={{ gap: 6, paddingTop: 24, paddingHorizontal: 18, paddingBottom: 14, transform: [{ rotate: i % 2 ? '0.5deg' : '-0.6deg' }] }}>
+              <PasteIn key={p.id} delay={Math.min(i, 6) * 90}>
+              <Sheet style={{ gap: 6, paddingTop: 24, paddingHorizontal: 18, paddingBottom: 14, transform: [{ rotate: i % 2 ? '0.5deg' : '-0.6deg' }] }}>
                 <View style={{ position: 'absolute', left: '50%', top: -9, marginLeft: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: paper.yellow, boxShadow: '0px 3px 3px rgba(20,19,16,0.4)' }} />
                 <Text style={[type.typed, { color: paper.ink2 }]}>
                   {p.kind === 'video' ? 'Video' : 'Article'} · {p.site}
@@ -39,6 +40,7 @@ export function PinsScreen({ pins, onToggle, onWatch, onOpenToday }: { pins: Pin
                   )}
                 </View>
               </Sheet>
+              </PasteIn>
             ))}
           </View>
         ) : (

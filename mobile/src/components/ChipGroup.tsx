@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import type { ReaderQuestion } from '@curiox/shared';
-import { Chip } from '../ui/kit';
+import { Chip, Pop } from '../ui/kit';
 import { type, useGround } from '../ui/tokens';
 
 export function toggleValue(q: Pick<ReaderQuestion, 'multi'>, values: string[], v: string): string[] {
@@ -39,7 +39,9 @@ export function ChipGroup({ q, values, onChange, freeLabel, freePlaceholder = 'w
     <View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {options.map((o, i) => (
-          <Chip key={o} label={o} index={i} selected={values.includes(o)} onPress={() => onChange(toggleValue(q, values, o))} />
+          <Pop key={o} delay={Math.min(i, 12) * 45}>
+            <Chip label={o} index={i} selected={values.includes(o)} onPress={() => onChange(toggleValue(q, values, o))} />
+          </Pop>
         ))}
       </View>
       {q.free && (
