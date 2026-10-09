@@ -31,7 +31,6 @@ The full plan, with its decisions, free-tier limits and timeline, is in [PROJECT
 ## Clients
 
 - **Mobile (primary)**: `mobile/`, Expo SDK 57 with Expo Router. Routes in `src/app/` are thin guards; screens live in `src/screens/`, UI in `src/components/`, API access only in `src/api/client.ts`. Runs in Expo Go: no custom native modules.
-- **Web (paused)**: `archive/web/`, kept out of the workspaces. See its README.
 
 ## Voice mode (mobile)
 

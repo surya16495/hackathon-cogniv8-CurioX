@@ -9,7 +9,6 @@ A learning companion that gets to know you, then explains anything in the way th
 | **Mobile app (primary)** | Expo SDK 57, React Native, Expo Router, TypeScript | `mobile/` |
 | API | Node 24 LTS, Express 5, TypeScript, MongoDB Atlas (Mongoose) | `server/` |
 | Shared contract + voice parser | TypeScript types, zod schemas, voice command parser | `packages/shared/` |
-| Web app (paused) | React, Vite, Tailwind, PWA | `archive/web/` (see its README) |
 
 AI: Groq `gpt-oss-120b` first (fast on the free tier), Gemini 3.8 Flash / 3.5 Flash-Lite as the fallback (`LLM_CHAT_ORDER`), and labelled demo answers and a demo issue as the last resort. Search: Tavily. Voice transcription: Groq Whisper. More detail is in [docs/architecture.md](docs/architecture.md) and [docs/api-contract.md](docs/api-contract.md).
 

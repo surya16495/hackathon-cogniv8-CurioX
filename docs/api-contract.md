@@ -1,13 +1,13 @@
 # CurioX API contract
 
 The TypeScript source of truth is [`packages/shared/src/types.ts`](../packages/shared/src/types.ts).
-The mobile app (primary client) imports types from `@curiox/shared`, never from `server/`. The paused web app in `archive/web/` uses the same contract.
+The mobile app imports types from `@curiox/shared`, never from `server/`.
 
 **Status: draft. Freeze at the end of phase 4 (Fri 11:00 PM).** After the freeze, change shapes only with the frontend lane's agreement.
 
 ## Conventions
 
-- Base URL: `VITE_API_URL` (local `http://localhost:4000`).
+- Base URL: `EXPO_PUBLIC_API_URL` (local: the laptop's IP, port 4000; see the README).
 - **Identity:** every route except `/api/health` needs an `X-Device-Id` header: 8–128 characters from `A-Z a-z 0-9 - _`. The app generates it once (a UUID) and keeps it in AsyncStorage. The user is created on first use.
 - **Native apps send no `Origin` header**, so CORS never blocks them. `CORS_ORIGIN` only matters for browser clients.
 - **Errors** are always JSON: `{ "error": { "code": string, "message": string, "details"?: any } }`.

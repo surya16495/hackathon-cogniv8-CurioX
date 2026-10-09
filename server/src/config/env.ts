@@ -27,7 +27,7 @@ const envSchema = z.object({
   TAVILY_API_KEY: optionalKey,
   CORS_ORIGIN: z
     .string()
-    .default('http://localhost:5173')
+    .default('http://localhost:8081')
     .transform((v) =>
       v
         .split(',')
