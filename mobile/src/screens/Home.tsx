@@ -2,7 +2,7 @@
 // panels, the rest of the issue grouped by what the reader follows (and what is related to it),
 // and back issues on a rack.
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, FlatList, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions, type ViewToken } from 'react-native';
+import { Animated, Easing, FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions, type ViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { topicName, type Deck, type DeckSummary, type TodayResponse } from '@curiox/shared';
 import { Cut, Sticker } from '../ui/Art';
@@ -22,6 +22,8 @@ export interface HomeProps {
   onOpenDeck: (id: string) => void;
   onAsk: () => void;
   onYou: () => void;
+  /** The reader's photo for the masthead, if they set one. */
+  avatar?: string | null;
   onRetry: () => void;
   onOnboard: () => void;
 }
@@ -253,8 +255,8 @@ export function Home(p: HomeProps) {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <T v="logo">CurioX</T>
-            <Strip onPress={p.onYou} rotate={1.2} accessibilityLabel="You, your profile" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingVertical: 0, paddingLeft: 11, paddingRight: 14 }}>
-              <Icon name="you" size={20} color={paper.ink} />
+            <Strip onPress={p.onYou} rotate={1.2} accessibilityLabel="You, your profile" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingVertical: 0, paddingLeft: p.avatar ? 7 : 11, paddingRight: 14 }}>
+              {p.avatar ? <Image source={{ uri: p.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} accessibilityIgnoresInvertColors /> : <Icon name="you" size={20} color={paper.ink} />}
               <Text style={[type.strip, { color: paper.ink }]}>You</Text>
             </Strip>
           </View>

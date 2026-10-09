@@ -121,6 +121,7 @@ Speech-to-text for voice mode (Groq Whisper). The body is the **raw audio file**
 - `POST /api/auth/signup` `{ name, email, password (≥6) }` → 201 `{ token, account, session }`. The device's anonymous user becomes the account, so the reader card, issues and pins made before signing up are kept. A device that already has an account creates a new user. Duplicate email → 400.
 - `POST /api/auth/signin` `{ email, password }` → `{ token, account, session }`; wrong credentials → 401.
 - `GET /api/auth/me` → `{ account: { name, email } | null }`.
+- `PUT /api/auth/account` `{ name?, avatar? }` → the session. Works with or without an account. `avatar` is a `data:image/jpeg|png|webp;base64,…` URL of at most 48 KB, or `null` to remove it. The session carries `name` and `avatar` for the profile page and the Home masthead.
 - `POST /api/session` now includes `account`.
 - Pins are saved per user (per account once signed in, per device before): `GET /api/pins` → `{ pins: PinDto[] }`, `PUT /api/pins` (one `PinDto`, upsert) → 204, `DELETE /api/pins/:id` → 204.
 - Tokens are HMAC-signed and valid 90 days; `AUTH_SECRET` must be set in production or they stop working on restart.

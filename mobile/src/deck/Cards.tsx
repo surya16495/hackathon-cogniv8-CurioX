@@ -1,7 +1,7 @@
 // One component per card kind, laid out like the design: a big headline, a yellow panel,
 // and cut-outs and stickers crossing the panel's edge.
-import { createElement, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, Linking, Platform, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Animated, Easing, Linking, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
 import type { Card, SourceRef } from '@curiox/shared';
 import { Cut, Sticker, type CutKey } from '../ui/Art';
 import { Icon } from '../ui/Icon';
@@ -9,6 +9,7 @@ import { Cross, Ring, SwipeArrow, Tick } from '../ui/Marks';
 import { Btn, Chip, Highlight, Note, Panel, Stamp, Strip, T, Tape, useReduceMotion, useSize } from '../ui/kit';
 import { curves, fonts, paper, type, useGround } from '../ui/tokens';
 import { GuessSlider } from './GuessSlider';
+import { Player } from './Player';
 import { useCardHandlers } from './bus';
 
 type CardOf<K extends Card['kind']> = Extract<Card, { kind: K }>;
@@ -343,17 +344,6 @@ export function GuessCard({ c }: { c: CardOf<'guess'> }) {
 }
 
 // ---------- 8 watch it ----------
-function Player({ videoId, title, width }: { videoId: string; title: string; width: number }) {
-  if (Platform.OS === 'web') {
-    const src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`;
-    return createElement('iframe', { src, title, allow: 'autoplay; encrypted-media; picture-in-picture', allowFullScreen: true, style: { width: '100%', height: '100%', border: 0 } });
-  }
-  // On the phone a bare WebView embed fails with YouTube's error 153 (no page origin behind the
-  // request); the IFrame-API player sets one up properly. Loaded lazily, only once play is pressed.
-  const YoutubePlayer = (require('react-native-youtube-iframe') as typeof import('react-native-youtube-iframe')).default;
-  return <YoutubePlayer height={Math.round((width * 9) / 16)} width={width} videoId={videoId} play initialPlayerParams={{ modestbranding: true, rel: false }} webViewProps={{ allowsInlineMediaPlayback: true, mediaPlaybackRequiresUserAction: false }} />;
-}
-
 export function WatchCard({ c, pin }: { c: CardOf<'watch'>; pin?: PinTarget }) {
   const g = useGround();
   const [playing, setPlaying] = useState(false);

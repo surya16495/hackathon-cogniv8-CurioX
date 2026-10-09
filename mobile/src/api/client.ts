@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type {
   Account,
+  AccountUpdate,
   AuthResponse,
   ChatRequest,
   PinDto,
@@ -135,6 +136,7 @@ export const api = {
   signUp: (body: { name: string; email: string; password: string }) => request<AuthResponse>('POST', '/api/auth/signup', body),
   signIn: (body: { email: string; password: string }) => request<AuthResponse>('POST', '/api/auth/signin', body),
   me: () => request<{ account: Account | null }>('GET', '/api/auth/me'),
+  updateAccount: (patch: AccountUpdate) => request<SessionResponse>('PUT', '/api/auth/account', patch),
   pins: () => request<PinsResponse>('GET', '/api/pins'),
   signal: (topic: string, kind: SignalKind) => request<SignalResponse>('POST', '/api/signals', { topic, kind }),
   savePin: (pin: PinDto) => request<void>('PUT', '/api/pins', pin),

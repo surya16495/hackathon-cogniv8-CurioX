@@ -4,14 +4,17 @@ import { blankReader, readerFromProfile, type ReaderCard } from '@curiox/shared'
 import { api } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 import { useZine } from '@/hooks/useZine';
-import { KEYS, storage } from '@/lib/storage';
+import { pickPhoto } from '@/lib/photo';
+import { KEYS, getJson, storage } from '@/lib/storage';
 import { Waking } from '@/screens/Status';
 import { YouScreen } from '@/screens/YouScreen';
 
 export default function YouRoute() {
   const router = useRouter();
-  const { session, update, signOut } = useSession();
-  const { loadToday } = useZine();
+  const { session, update, replace, signOut } = useSession();
+  const { loadToday, pins, today } = useZine();
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [reader, setReader] = useState<ReaderCard>(() => (session ? readerFromProfile(session.profile) : blankReader()));
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -67,6 +70,30 @@ export default function YouRoute() {
     router.replace('/onboard');
   };
 
+  const saveAccount = async (patch: { name?: string; avatar?: string | null }) => {
+    setSaving(true);
+    try {
+      replace(await api.updateAccount(patch));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : 'Could not save that.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const choosePhoto = async () => {
+    setPhotoError(null);
+    setPhotoBusy(true);
+    try {
+      const pick = await pickPhoto();
+      if (pick.status === 'ok') await saveAccount({ avatar: pick.dataUrl });
+      else if (pick.status === 'denied') setPhotoError('CurioX needs permission to open your photos. You can allow it in Settings.');
+      else if (pick.status === 'error') setPhotoError(pick.message);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
   if (!session) return <Waking title="Opening your card" body="One moment." status="Loading" />;
   return (
     <YouScreen
@@ -84,6 +111,14 @@ export default function YouRoute() {
         signOut();
         router.replace('/');
       }}
+      avatar={session.avatar}
+      name={session.name}
+      photoBusy={photoBusy}
+      photoError={photoError}
+      onPickPhoto={() => void choosePhoto()}
+      onRemovePhoto={() => void saveAccount({ avatar: null })}
+      onName={(name) => void saveAccount({ name })}
+      stats={{ read: getJson<string[]>(KEYS.read, []).length, pinned: pins.length, issues: today?.issue.no ?? 0 }}
     />
   );
 }

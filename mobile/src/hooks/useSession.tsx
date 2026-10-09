@@ -14,6 +14,8 @@ interface SessionContextValue {
   retry: () => void;
   /** Update the cached profile/onboarding after onboarding or a profile edit. */
   update: (profile: Profile, onboarding: OnboardingState) => void;
+  /** Replace the whole session (after a name or photo change). */
+  replace: (session: SessionResponse) => void;
   /** Both resolve with the account's session, so the caller can route on it straight away. */
   signUp: (name: string, email: string, password: string) => Promise<SessionResponse>;
   signIn: (email: string, password: string) => Promise<SessionResponse>;
@@ -72,7 +74,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession((s) => (s ? { ...s, profile, onboarding } : s));
   }, []);
 
-  const value = useMemo(() => ({ phase, session, health, error, retry, update, signUp, signIn, signOut }), [phase, session, health, error, retry, update, signUp, signIn, signOut]);
+  const replace = useCallback((s: SessionResponse) => setSession(s), []);
+
+  const value = useMemo(() => ({ phase, session, health, error, retry, update, replace, signUp, signIn, signOut }), [phase, session, health, error, retry, update, replace, signUp, signIn, signOut]);
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

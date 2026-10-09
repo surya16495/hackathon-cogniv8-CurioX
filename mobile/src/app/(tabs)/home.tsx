@@ -35,6 +35,7 @@ export default function HomeRoute() {
       onOpenDeck={open}
       onAsk={() => router.push('/ask')}
       onYou={() => router.push('/you')}
+      avatar={session?.avatar ?? null}
       onRetry={() => void z.loadToday()}
       onOnboard={() => router.push('/onboard')}
     />
