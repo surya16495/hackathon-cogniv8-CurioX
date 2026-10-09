@@ -1,4 +1,4 @@
-import type { Source } from '@lumora/shared';
+import type { Source } from '@curiox/shared';
 
 export const ROUTER_PROMPT = `You decide whether answering a learner's message needs a live web search.
 Search ONLY when the answer depends on current or fast-changing information: news, recent events, prices,

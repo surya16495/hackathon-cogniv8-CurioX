@@ -1,4 +1,4 @@
-import type { Source } from '@lumora/shared';
+import type { Source } from '@curiox/shared';
 import { withTimeout, truncate } from '../../utils/async';
 import { describeError } from '../../utils/errors';
 import { demoSources } from '../llm/demo';

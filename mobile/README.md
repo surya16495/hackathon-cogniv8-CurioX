@@ -1,4 +1,4 @@
-# Lumora mobile (stretch goal)
+# CurioX mobile (stretch goal)
 
 Expo app on the same API. Start only after the web judge journey works end to end
 (see docs/architecture.md, "Implementation order"). Not part of the npm workspaces yet,

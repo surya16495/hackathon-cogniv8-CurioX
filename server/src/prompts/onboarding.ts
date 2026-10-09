@@ -1,4 +1,4 @@
-import type { OnboardingStepKey } from '@lumora/shared';
+import type { OnboardingStepKey } from '@curiox/shared';
 
 export interface OnboardingStepDef {
   key: OnboardingStepKey;
@@ -13,7 +13,7 @@ export const ONBOARDING_STEP_DEFS: OnboardingStepDef[] = [
   {
     key: 'interests',
     intent: 'the subjects, hobbies or fields the learner enjoys or wants to explore',
-    fallbackQuestion: "Hi, I'm Lumora! To start, what topics or hobbies are you most interested in right now?",
+    fallbackQuestion: "Hi, I'm CurioX! To start, what topics or hobbies are you most interested in right now?",
   },
   {
     key: 'knowledgeLevels',
@@ -32,7 +32,7 @@ export const ONBOARDING_STEP_DEFS: OnboardingStepDef[] = [
   },
   {
     key: 'tone',
-    intent: 'the tone the learner prefers from Lumora: casual and playful, friendly, or formal and precise',
+    intent: 'the tone the learner prefers from CurioX: casual and playful, friendly, or formal and precise',
     fallbackQuestion: 'What tone works best for you: casual and playful, warm and friendly, or more formal and precise?',
   },
   {
@@ -44,9 +44,9 @@ export const ONBOARDING_STEP_DEFS: OnboardingStepDef[] = [
 
 export function phraseQuestionPrompt(step: OnboardingStepDef, known: { question: string; answer: string }[]): string {
   const transcript = known.length
-    ? known.map((k) => `Lumora: ${k.question}\nLearner: ${k.answer || '(skipped)'}`).join('\n')
+    ? known.map((k) => `CurioX: ${k.question}\nLearner: ${k.answer || '(skipped)'}`).join('\n')
     : '(no answers yet)';
-  return `You are Lumora, a friendly learning companion, getting to know a new learner.
+  return `You are CurioX, a friendly learning companion, getting to know a new learner.
 Conversation so far:
 ${transcript}
 

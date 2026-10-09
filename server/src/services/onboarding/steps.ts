@@ -6,7 +6,7 @@ import {
   type OnboardingResponse,
   type OnboardingState,
   type Profile,
-} from '@lumora/shared';
+} from '@curiox/shared';
 import { User, type UserDoc } from '../../db/models';
 import { ONBOARDING_STEP_DEFS, phraseQuestionPrompt } from '../../prompts/onboarding';
 import { conflict } from '../../utils/errors';
@@ -44,7 +44,7 @@ async function phraseQuestion(step: number, known: OnboardingAnswer[], llm: LlmS
     { system: phraseQuestionPrompt(def, known), messages: [{ role: 'user', content: 'Ask the next question.' }], temperature: 0.8, maxOutputTokens: 120 },
     () => def.fallbackQuestion,
   );
-  const cleaned = text.replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/^Lumora:\s*/i, '');
+  const cleaned = text.replace(/^["'“”\s]+|["'“”\s]+$/g, '').replace(/^CurioX:\s*/i, '');
   return cleaned && cleaned.includes('?') ? truncate(cleaned, 300) : def.fallbackQuestion;
 }
 

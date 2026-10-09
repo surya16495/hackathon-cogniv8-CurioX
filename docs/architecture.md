@@ -1,4 +1,4 @@
-# Lumora architecture
+# CurioX architecture
 
 The full plan, with its decisions, free-tier limits and timeline, is in [PROJECT_IDEA.md](PROJECT_IDEA.md). This page describes how the code implements it.
 

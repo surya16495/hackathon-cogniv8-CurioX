@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
-    "@lumora/shared": "*",
+    "@curiox/shared": "*",
     "@tavily/core": "^0.5.12",
     "cors": "^2.8.5",
     "express": "^5.1.0",

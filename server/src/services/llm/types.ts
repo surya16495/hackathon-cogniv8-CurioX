@@ -1,4 +1,4 @@
-import type { Provider } from '@lumora/shared';
+import type { Provider } from '@curiox/shared';
 
 export interface LlmMessage {
   role: 'user' | 'assistant';

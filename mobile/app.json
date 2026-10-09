@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Lumora",
-    "slug": "lumora",
+    "name": "CurioX",
+    "slug": "curiox",
     "version": "0.1.0",
-    "scheme": "lumora",
+    "scheme": "curiox",
     "orientation": "portrait"
   }
 }

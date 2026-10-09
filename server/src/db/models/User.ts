@@ -1,5 +1,5 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
-import { KNOWLEDGE_LEVELS, ONBOARDING_STATUSES, ONBOARDING_STEPS } from '@lumora/shared';
+import { KNOWLEDGE_LEVELS, ONBOARDING_STATUSES, ONBOARDING_STEPS } from '@curiox/shared';
 
 const profileSchema = new Schema(
   {

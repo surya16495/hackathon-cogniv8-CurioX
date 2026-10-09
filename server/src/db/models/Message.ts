@@ -1,5 +1,5 @@
 import { Schema, Types, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
-import { LEARN_ACTION_IDS, PROVIDERS, type ChatMessage } from '@lumora/shared';
+import { LEARN_ACTION_IDS, PROVIDERS, type ChatMessage } from '@curiox/shared';
 
 const sourceSchema = new Schema(
   {

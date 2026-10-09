@@ -1,6 +1,6 @@
 // Runs the judge journey against a running API:
 //   npm run smoke -w server                      (http://localhost:4000)
-//   API_URL=https://lumora-api.onrender.com npm run smoke -w server
+//   API_URL=https://curiox-api.onrender.com npm run smoke -w server
 import { randomUUID } from 'node:crypto';
 import { parseSse } from '../src/utils/sse';
 
@@ -40,7 +40,7 @@ function assert(cond: unknown, msg: string): asserts cond {
 }
 
 async function main() {
-  console.log(`Lumora smoke test against ${API} as ${DEVICE}\n`);
+  console.log(`CurioX smoke test against ${API} as ${DEVICE}\n`);
   let conversationId = '';
 
   await step('health (wakes the server)', async () => {

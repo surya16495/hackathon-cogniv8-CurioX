@@ -1,4 +1,4 @@
-import type { LearnActionId } from '@lumora/shared';
+import type { LearnActionId } from '@curiox/shared';
 
 /** One extra instruction per learn action, added to the chat prompt. */
 export const ACTION_INSTRUCTIONS: Record<LearnActionId, string> = {

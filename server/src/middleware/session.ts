@@ -1,7 +1,7 @@
 // Anonymous identity: the client generates a device ID once, keeps it in storage,
 // and sends it as the X-Device-Id header. The user is created on first sight.
 import type { RequestHandler } from 'express';
-import { DEVICE_ID_HEADER, LIMITS } from '@lumora/shared';
+import { DEVICE_ID_HEADER, LIMITS } from '@curiox/shared';
 import { User } from '../db/models';
 import { unauthorized } from '../utils/errors';
 

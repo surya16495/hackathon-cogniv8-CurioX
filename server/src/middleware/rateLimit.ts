@@ -1,5 +1,5 @@
 import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
-import { DEVICE_ID_HEADER } from '@lumora/shared';
+import { DEVICE_ID_HEADER } from '@curiox/shared';
 
 const handler: Options['handler'] = (_req, res, _next, options) => {
   res.status(options.statusCode).json({

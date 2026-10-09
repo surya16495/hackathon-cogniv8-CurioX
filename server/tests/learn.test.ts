@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { quizSchema } from '@lumora/shared';
+import { quizSchema } from '@curiox/shared';
 import { client, fakeProvider, makeApp } from './helpers';
 
 const q = (i: number, options = ['A', 'B', 'C', 'D']) => ({ question: `Q${i}?`, options, answerIndex: i % 4, explanation: 'Because.' });

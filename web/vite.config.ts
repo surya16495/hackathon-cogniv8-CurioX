@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Lumora',
-        short_name: 'Lumora',
+        name: 'CurioX',
+        short_name: 'CurioX',
         description: 'A learning companion that adapts to you.',
         theme_color: '#4f46e5',
         background_color: '#ffffff',

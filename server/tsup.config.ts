@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup';
 
-// Bundles the server and the @lumora/shared workspace package into dist/
+// Bundles the server and the @curiox/shared workspace package into dist/
 // so production runs plain JS with no TypeScript loader.
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -10,5 +10,5 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   sourcemap: true,
-  noExternal: ['@lumora/shared'],
+  noExternal: ['@curiox/shared'],
 });

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { SessionResponse } from '@lumora/shared';
+import type { SessionResponse } from '@curiox/shared';
 import { currentUser } from '../middleware/session';
 import { onboardingState, userProfile } from '../services/onboarding/steps';
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { HealthResponse } from '@lumora/shared';
+import type { HealthResponse } from '@curiox/shared';
 import { dbState } from '../db/connect';
 import type { Services } from '../services';
 

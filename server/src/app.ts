@@ -1,7 +1,7 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { DEVICE_ID_HEADER } from '@lumora/shared';
+import { DEVICE_ID_HEADER } from '@curiox/shared';
 import type { Env } from './config/env';
 import type { Services } from './services';
 import { deviceSession } from './middleware/session';
@@ -41,7 +41,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
   app.use(express.json({ limit: '32kb' }));
 
   app.get('/', (_req, res) => {
-    res.json({ name: 'Lumora API', health: '/api/health' });
+    res.json({ name: 'CurioX API', health: '/api/health' });
   });
   app.use('/api/health', healthRouter(services));
 

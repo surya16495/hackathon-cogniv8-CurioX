@@ -31,7 +31,7 @@ export async function routeMessage(
   if (!opts.searchAvailable || !message.trim()) return { needsSearch: false, query: '' };
   if (llm.demoMode) return heuristicRoute(message);
 
-  const recent = history.slice(-4).map((m) => `${m.role === 'user' ? 'Learner' : 'Lumora'}: ${m.content.slice(0, 300)}`);
+  const recent = history.slice(-4).map((m) => `${m.role === 'user' ? 'Learner' : 'CurioX'}: ${m.content.slice(0, 300)}`);
   const { data } = await llm.completeJson(
     {
       system: ROUTER_PROMPT,

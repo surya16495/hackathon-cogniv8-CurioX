@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { quizRequestSchema } from '@lumora/shared';
+import { quizRequestSchema } from '@curiox/shared';
 import { Conversation, Message } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { quotaLimiter } from '../middleware/rateLimit';
@@ -23,7 +23,7 @@ export function learnRouter(services: Services): Router {
       if (!conversation) throw notFound('Conversation not found');
       const recent = (await Message.find({ conversationId: conversation._id }).sort({ createdAt: -1, _id: -1 }).limit(4)).reverse();
       context = recent
-        .map((m) => `${m.role === 'user' ? 'Learner' : 'Lumora'}: ${(m.content ?? '').slice(0, 800)}`)
+        .map((m) => `${m.role === 'user' ? 'Learner' : 'CurioX'}: ${(m.content ?? '').slice(0, 800)}`)
         .join('\n');
       topic ??= conversation.title ?? 'this topic';
     }

@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import type { SseEvent } from '@lumora/shared';
+import type { SseEvent } from '@curiox/shared';
 
 export interface SseChannel {
   send: <E extends SseEvent>(event: E['event'], data: E['data']) => void;

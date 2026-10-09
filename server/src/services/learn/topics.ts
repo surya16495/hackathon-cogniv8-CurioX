@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { LIMITS, type Profile, type SuggestedTopic, type SuggestedTopicsResponse } from '@lumora/shared';
+import { LIMITS, type Profile, type SuggestedTopic, type SuggestedTopicsResponse } from '@curiox/shared';
 import { topicsPrompt } from '../../prompts/learn';
 import { profileSummary } from '../../prompts/persona';
 import type { LlmService } from '../llm';

@@ -1,4 +1,4 @@
-import { LIMITS, quizSchema, type Profile, type Quiz, type QuizResponse } from '@lumora/shared';
+import { LIMITS, quizSchema, type Profile, type Quiz, type QuizResponse } from '@curiox/shared';
 import { quizPrompt } from '../../prompts/learn';
 import { profileSummary } from '../../prompts/persona';
 import type { LlmService } from '../llm';

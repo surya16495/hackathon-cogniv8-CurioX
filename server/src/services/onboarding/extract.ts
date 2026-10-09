@@ -1,7 +1,7 @@
 // Turn onboarding answers into a Profile: one lite-model JSON call, with a
 // rule-based fallback so onboarding always finishes, even offline.
 import { z } from 'zod';
-import { KNOWLEDGE_LEVELS, type KnowledgeLevel, type OnboardingStepKey, type Profile } from '@lumora/shared';
+import { KNOWLEDGE_LEVELS, type KnowledgeLevel, type OnboardingStepKey, type Profile } from '@curiox/shared';
 import { PROFILE_EXTRACTION_PROMPT } from '../../prompts/onboarding';
 import type { LlmService } from '../llm';
 import { truncate } from '../../utils/async';
@@ -102,7 +102,7 @@ export async function extractProfile(answers: OnboardingAnswer[], llm: LlmServic
   const answered = answers.filter((a) => a.answer.trim());
   if (!answered.length) return sanitizeProfile({});
 
-  const transcript = answered.map((a) => `Lumora: ${a.question}\nLearner: ${a.answer}`).join('\n\n');
+  const transcript = answered.map((a) => `CurioX: ${a.question}\nLearner: ${a.answer}`).join('\n\n');
   const { data, provider } = await llm.completeJson(
     { system: PROFILE_EXTRACTION_PROMPT, messages: [{ role: 'user', content: transcript }], temperature: 0.1 },
     looseProfileSchema,

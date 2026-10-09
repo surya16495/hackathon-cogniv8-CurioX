@@ -1,6 +1,6 @@
-import type { Profile } from '@lumora/shared';
+import type { Profile } from '@curiox/shared';
 
-export const LUMORA_PERSONA = `You are Lumora, a warm, curious learning companion.
+export const CURIOX_PERSONA = `You are CurioX, a warm, curious learning companion.
 Your job is to help one person understand things deeply, in the way that suits them best.
 
 How you answer:

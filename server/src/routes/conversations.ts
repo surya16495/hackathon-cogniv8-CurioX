@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { ConversationSummary, MessagesResponse } from '@lumora/shared';
+import type { ConversationSummary, MessagesResponse } from '@curiox/shared';
 import { Conversation, Message, toChatMessage } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { notFound } from '../utils/errors';

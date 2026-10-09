@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { chatRequestSchema, type ChatResponse, type SseEvent } from '@lumora/shared';
+import { chatRequestSchema, type ChatResponse, type SseEvent } from '@curiox/shared';
 import { currentUser } from '../middleware/session';
 import { quotaLimiter } from '../middleware/rateLimit';
 import { prepareChat, runChat, type Emit } from '../services/chat/orchestrator';
@@ -46,7 +46,7 @@ export function chatRouter(services: Services): Router {
       if (!controller.signal.aborted) {
         console.error(`[chat] failed: ${describeError(err)}`);
         sse.send('error', {
-          message: 'Lumora could not finish this answer. Please try again.',
+          message: 'CurioX could not finish this answer. Please try again.',
           code: 'CHAT_FAILED',
           conversationId: prepared.conversation._id.toString(),
         });

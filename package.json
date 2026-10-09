@@ -1,8 +1,8 @@
 {
-  "name": "hackathon-cogniv8-lumora",
+  "name": "hackathon-cogniv8-curiox",
   "version": "0.1.0",
   "private": true,
-  "description": "Lumora: a personalized AI learning companion. Express + MongoDB API, React PWA client.",
+  "description": "CurioX: a personalized AI learning companion. Express + MongoDB API, React PWA client.",
   "workspaces": [
     "packages/*",
     "server",

@@ -2,7 +2,7 @@
 // Any provider error (429, 5xx, timeout, bad key) moves to the next provider,
 // because during a live demo any answer beats an error message.
 import type { ZodType } from 'zod';
-import type { Provider } from '@lumora/shared';
+import type { Provider } from '@curiox/shared';
 import { describeError } from '../../utils/errors';
 import { withIdleTimeout, withTimeout } from '../../utils/async';
 import { extractJson } from '../../utils/json';

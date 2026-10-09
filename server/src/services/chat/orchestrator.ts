@@ -8,10 +8,10 @@ import {
   type Provider,
   type SseEvent,
   type Source,
-} from '@lumora/shared';
+} from '@curiox/shared';
 import { Conversation, Message, toChatMessage, type ConversationDoc, type MessageDoc, type UserDoc } from '../../db/models';
 import { ACTION_INSTRUCTIONS } from '../../prompts/actions';
-import { LUMORA_PERSONA, profileSummary } from '../../prompts/persona';
+import { CURIOX_PERSONA, profileSummary } from '../../prompts/persona';
 import { sourcesBlock } from '../../prompts/research';
 import { badRequest, notFound } from '../../utils/errors';
 import { truncate } from '../../utils/async';
@@ -81,7 +81,7 @@ function buildSystemPrompt(opts: {
   action?: ChatRequest['action'];
 }): string {
   const parts = [
-    LUMORA_PERSONA,
+    CURIOX_PERSONA,
     `LEARNER PROFILE:\n${profileSummary(opts.profile)}`,
     sourcesBlock(opts.sources, opts.searchAttempted),
   ];

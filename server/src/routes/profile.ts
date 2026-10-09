@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { profileUpdateSchema, type ProfileResponse } from '@lumora/shared';
+import { profileUpdateSchema, type ProfileResponse } from '@curiox/shared';
 import { Conversation, Message, User } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { sanitizeProfile } from '../services/onboarding/extract';

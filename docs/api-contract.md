@@ -1,7 +1,7 @@
-# Lumora API contract
+# CurioX API contract
 
 The TypeScript source of truth is [`packages/shared/src/types.ts`](../packages/shared/src/types.ts).
-Web and mobile import types from `@lumora/shared`; never from `server/`.
+Web and mobile import types from `@curiox/shared`; never from `server/`.
 
 **Status: draft. Freeze at the end of phase 4 (Fri 11:00 PM).** After the freeze, change shapes only with the frontend lane's agreement.
 
@@ -25,7 +25,7 @@ Web and mobile import types from `@lumora/shared`; never from `server/`.
 ## Routes
 
 ### `GET /api/health`
-No device ID. Call on app load and show a "Waking up Lumora" state until it answers (Render can take about a minute to wake).
+No device ID. Call on app load and show a "Waking up CurioX" state until it answers (Render can take about a minute to wake).
 ```json
 { "status": "ok", "uptimeSeconds": 12, "db": "connected", "demoMode": false,
   "providers": { "gemini": true, "groq": true, "tavily": true }, "version": "0.1.0" }

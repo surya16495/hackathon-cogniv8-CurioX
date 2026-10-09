@@ -1,9 +1,9 @@
 // Last-resort answers. Used when DEMO_MODE=true or every provider failed.
 // Always labelled as a demo answer, as the spec requires.
-import { learnActionLabel, type LearnActionId, type Profile, type Source } from '@lumora/shared';
+import { learnActionLabel, type LearnActionId, type Profile, type Source } from '@curiox/shared';
 import { sleep } from '../../utils/async';
 
-export const DEMO_LABEL = '_Demo answer: Lumora is offline from its AI models right now, so this reply is pre-written._';
+export const DEMO_LABEL = '_Demo answer: CurioX is offline from its AI models right now, so this reply is pre-written._';
 
 export interface DemoAnswerInput {
   question: string;

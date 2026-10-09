@@ -1,4 +1,4 @@
-# Lumora
+# CurioX
 
 A learning companion that gets to know you, then explains anything in the way that works for you: with live, cited research, one-tap learn actions and quick quizzes. It installs on any phone as a PWA, and no login is needed.
 
@@ -39,7 +39,7 @@ npm test                        # server tests (in-memory MongoDB, no API quota 
 npm run smoke                   # judge journey against the running API
 ```
 
-Hosted: the API runs on a Render free web service (build `npm install && npm run build -w server`, start `npm start -w server`, set the env vars from `.env.example`). The web app is a static site on Vercel or Netlify (build `npm run build -w web`, output `web/dist`, set `VITE_API_URL`). The database is MongoDB Atlas M0, using `lumora_dev` and `lumora_prod`.
+Hosted: the API runs on a Render free web service (build `npm install && npm run build -w server`, start `npm start -w server`, set the env vars from `.env.example`). The web app is a static site on Vercel or Netlify (build `npm run build -w web`, output `web/dist`, set `VITE_API_URL`). The database is MongoDB Atlas M0, using `curiox_dev` and `curiox_prod`.
 
 ## Team
 

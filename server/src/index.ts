@@ -13,7 +13,7 @@ async function main() {
   const server = app.listen(env.PORT, () => {
     const providers = services.llm.configured();
     console.info(
-      `[lumora] API on http://localhost:${env.PORT} | demoMode=${env.DEMO_MODE} gemini=${providers.gemini} groq=${providers.groq} tavily=${services.tavilyConfigured}`,
+      `[curiox] API on http://localhost:${env.PORT} | demoMode=${env.DEMO_MODE} gemini=${providers.gemini} groq=${providers.groq} tavily=${services.tavilyConfigured}`,
     );
   });
   // SSE answers can run long; do not let Node cut them off.
@@ -23,7 +23,7 @@ async function main() {
   await connectDb(env.MONGODB_URI);
 
   const shutdown = (signal: string) => {
-    console.info(`[lumora] ${signal} received, shutting down`);
+    console.info(`[curiox] ${signal} received, shutting down`);
     server.close(() => {
       disconnectDb().finally(() => process.exit(0));
     });
@@ -34,6 +34,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[lumora] failed to start:', err instanceof Error ? err.message : err);
+  console.error('[curiox] failed to start:', err instanceof Error ? err.message : err);
   process.exit(1);
 });

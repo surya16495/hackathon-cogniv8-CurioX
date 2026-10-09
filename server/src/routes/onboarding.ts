@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { onboardingMessageSchema } from '@lumora/shared';
+import { onboardingMessageSchema } from '@curiox/shared';
 import { currentUser } from '../middleware/session';
 import { handleOnboardingMessage } from '../services/onboarding/steps';
 import type { Services } from '../services';
