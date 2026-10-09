@@ -16,8 +16,11 @@ import { ReaderCardView } from '../components/ReaderCard';
 import { Cut } from '../ui/Art';
 import { Btn, Ground, IconBtn, Note, Panel, Pill, T } from '../ui/kit';
 
+/** Interests, level, goals, style, tone. What the reader wonders about comes from how they use the app. */
+export const STEPS = 5;
+
 export function useOnboardFlow(initial?: ReaderCard) {
-  const [step, setStepState] = useState(0); // 0 welcome, 1..6 questions, 7 summary
+  const [step, setStepState] = useState(0); // 0 welcome, 1..5 questions, 6 summary
   const [ans, setAnsState] = useState<ReaderCard>(() => initial ?? blankReader());
   const [tailored, setTailored] = useState<ReaderQuestion[]>(() => tailorQuestions(initial?.interests ?? []));
   const [draft, setDraftState] = useState('');
@@ -43,7 +46,7 @@ export function useOnboardFlow(initial?: ReaderCard) {
   };
 
   const questions = useMemo(() => [interestsQuestion(), ...tailored], [tailored]);
-  const questionAt = (n: number) => (n >= 1 && n <= 6 ? [interestsQuestion(), ...tailoredRef.current][n - 1]! : null);
+  const questionAt = (n: number) => (n >= 1 && n <= STEPS ? [interestsQuestion(), ...tailoredRef.current][n - 1]! : null);
   const q = questionAt(step);
 
   const retailor = (interests: string[]) => {
@@ -76,7 +79,7 @@ export function useOnboardFlow(initial?: ReaderCard) {
 
   const go = (to: number) => {
     setDraft('');
-    if (to >= 1 && to <= 6) visited.current.add(to);
+    if (to >= 1 && to <= STEPS) visited.current.add(to);
     setStep(to);
   };
 
@@ -136,7 +139,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
           <View style={{ marginTop: 22, gap: 10 }}>
             <Btn label="Start" wide onPress={flow.start} />
             <T v="hint" muted>
-              Six quick questions. No sign-up.
+              Five quick questions. No sign-up.
             </T>
           </View>
         </View>
@@ -144,7 +147,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
     );
   }
 
-  if (step > 6 || !q) {
+  if (step > STEPS || !q) {
     return (
       <Ground>
         <ScrollView ref={scroll} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 18) }}>
@@ -172,7 +175,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
         <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 6, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 18) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: -12, marginRight: -10, marginBottom: 18 }}>
             <IconBtn name="back" label="Back" onPress={flow.back} />
-            <Pill label={`${step}/6`} />
+            <Pill label={`${step}/${STEPS}`} />
             <Btn label="Skip" variant="text" onPress={flow.skip} />
           </View>
           <T v="l" accessibilityRole="header" style={{ marginBottom: 8 }}>
@@ -185,7 +188,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
             <ChipGroup key={q.key} q={q} values={ans[q.key]} onChange={flow.set} onDraft={flow.setDraft} onFreeSubmit={() => flow.canNext && flow.next()} />
           </View>
           <View style={{ flex: 1, minHeight: 24 }} />
-          <Btn label={step === 6 ? 'Finish' : 'Next'} wide disabled={!flow.canNext} onPress={flow.next} />
+          <Btn label={step === STEPS ? 'Finish' : 'Next'} wide disabled={!flow.canNext} onPress={flow.next} />
         </ScrollView>
       </KeyboardAvoidingView>
     </Ground>

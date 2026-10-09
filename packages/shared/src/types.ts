@@ -92,6 +92,15 @@ export interface Account {
   email: string;
 }
 
+/** PUT /api/account: the display name and a small photo (a data URL, at most 48 KB). */
+export const accountUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60).optional(),
+    avatar: z.string().regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/).max(48 * 1024).nullable().optional(),
+  })
+  .strict();
+export type AccountUpdate = z.infer<typeof accountUpdateSchema>;
+
 export const signUpSchema = z
   .object({
     name: z.string().trim().min(1).max(60),
@@ -120,6 +129,10 @@ export interface SessionResponse {
   isNew: boolean;
   /** The signed-in account, or null for an anonymous device. */
   account: Account | null;
+  /** The reader's photo as a data URL, if they set one (kept even without an account). */
+  avatar: string | null;
+  /** The display name, with or without an account. */
+  name: string;
 }
 
 // ---------- Pins (saved per account, or per device when anonymous) ----------

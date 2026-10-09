@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
-import { signInSchema, signUpSchema, type Account, type AuthResponse } from '@curiox/shared';
+import { accountUpdateSchema, signInSchema, signUpSchema, type Account, type AuthResponse } from '@curiox/shared';
 import { User } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { quotaLimiter } from '../middleware/rateLimit';
@@ -35,6 +35,17 @@ export function authRouter(authSecret: string): Router {
     const account: Account = { name: user.name ?? '', email: user.email! };
     const payload: AuthResponse = { token: signToken(authSecret, user._id.toString()), account, session: sessionBody(user) };
     res.json(payload);
+  });
+
+  // PUT /api/auth/account: the display name and photo, with or without an account.
+  router.put('/account', async (req, res) => {
+    const body = accountUpdateSchema.parse(req.body ?? {});
+    const set: Record<string, string> = {};
+    if (body.name !== undefined) set.name = body.name;
+    if (body.avatar !== undefined) set.avatar = body.avatar ?? '';
+    const user = await User.findByIdAndUpdate(currentUser(req)._id, { $set: set }, { new: true });
+    if (!user) throw new Error('User not found');
+    res.json(sessionBody(user));
   });
 
   // GET /api/auth/me: who the token says we are (null when anonymous).

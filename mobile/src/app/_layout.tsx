@@ -44,8 +44,8 @@ export default function RootLayout() {
     if (ready) void SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
 
-  // The native splash is the lock screen's colour, so this hand-off is seamless.
-  if (!ready) return <View style={{ flex: 1, backgroundColor: paper.lock }} />;
+  // The native splash is paper-coloured too, so this hand-off is seamless.
+  if (!ready) return <View style={{ flex: 1, backgroundColor: g.ground }} />;
 
   return (
     <SafeAreaProvider>
@@ -54,7 +54,7 @@ export default function RootLayout() {
           <VoiceProvider>
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: g.ground }, animation: 'fade' }}>
-              <Stack.Screen name="index" options={{ contentStyle: { backgroundColor: paper.lock }, animation: 'none' }} />
+              <Stack.Screen name="index" options={{ animation: 'none' }} />
             </Stack>
             <VoiceOverlay />
             <NotificationOpener />

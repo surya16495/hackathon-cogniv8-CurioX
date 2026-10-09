@@ -31,7 +31,7 @@ function Row({ k, value, editable, open, onPress, empty }: { k: ReaderKey; value
 export function ReaderCardView({ reader, editable = false, openKey, onRow, renderEditor }: { reader: Card; editable?: boolean; openKey?: ReaderKey | null; onRow?: (k: ReaderKey) => void; renderEditor?: (k: ReaderKey) => ReactNode }) {
   return (
     <Sheet tape style={{ paddingTop: 14, paddingHorizontal: 16, paddingBottom: 12 }}>
-      {READER_KEYS.map((k) => (
+      {READER_KEYS.filter((k) => k !== 'curious' || reader.curious.length > 0).map((k) => (
         <Fragment key={k}>
           <Row k={k} value={reader[k].join(', ')} editable={editable} open={openKey === k} onPress={() => onRow?.(k)} empty={editable ? 'not answered' : 'skipped'} />
           {openKey === k && renderEditor && <View style={{ paddingTop: 14, paddingBottom: 16 }}>{renderEditor(k)}</View>}

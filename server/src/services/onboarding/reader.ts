@@ -44,10 +44,9 @@ export async function tailor(interests: string[], llm: LlmService): Promise<Tail
   );
   if (!data) return { questions, provider: 'demo' };
 
-  const [level, goals, , , curious] = questions;
+  const [level, goals] = questions;
   level!.options[2] = data.regular;
   goals!.options = [...new Set([goals!.options[0]!, ...data.goals, ...goals!.options.slice(1)])].slice(0, 6);
-  curious!.options = [...new Set(data.curious)].slice(0, 5);
   return { questions, provider };
 }
 

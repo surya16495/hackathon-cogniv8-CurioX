@@ -61,6 +61,19 @@ describe('accounts', () => {
     expect((await c.get('/api/auth/me').set('Authorization', `Bearer ${second.body.token}`)).body.account.email).toBe('b@x.com');
   });
 
+  it('name and photo can be set with or without an account', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const res = await c.put('/api/auth/account').send({ name: 'Sam', avatar: tiny });
+    expect(res.body).toMatchObject({ name: 'Sam', avatar: tiny, account: null });
+    expect((await c.post('/api/session')).body.avatar).toBe(tiny);
+    expect((await c.put('/api/auth/account').send({ avatar: null })).body.avatar).toBeNull();
+    expect((await c.put('/api/auth/account').send({ avatar: 'not-an-image' })).status).toBe(400);
+    const up = await c.post('/api/auth/signup').send({ name: 'Samuel', email: 'sam@x.com', password: 'secret-1' });
+    expect(up.body.session.name).toBe('Samuel');
+  });
+
   it('validates sign-up input', async () => {
     const { app } = makeApp();
     const c = client(app);

@@ -1,107 +1,69 @@
-// The opening: the design's lock screen as an animated splash. A yellow halftone field blooms,
-// the date and time settle, and a CurioX notification slides in. Tapping it (or waiting) opens the app
-// with a yellow flood. The server wakes up underneath, so the animation is never dead time.
+// The opening: today's notification arriving on paper. The mark drops in, the notification slides
+// down, and tapping it (or waiting) opens the app with a yellow flood. The same message goes out as
+// a real notification (lib/notify.ts), so this is what readers see on their lock screen too.
+// The server wakes up underneath, so the animation is never dead time.
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, Pattern } from 'react-native-svg';
 import type { ArtKey } from '@curiox/shared';
 import { topicName } from '@curiox/shared';
 import { Sticker } from '../ui/Art';
-import { DownArrow } from '../ui/Marks';
-import { Stamp, useReduceMotion } from '../ui/kit';
+import { Ground, Stamp, useReduceMotion } from '../ui/kit';
 import { curves, fonts, paper, type } from '../ui/tokens';
 
 export interface OpeningNotice {
   title: string;
   body: string;
   art: ArtKey;
-  /** An older, greyed notification under the live one. */
-  old?: { title: string; when: string };
 }
 
 const slap = Easing.bezier(...curves.slap);
-
-/** Yellow dots on a 12px grid inside a 270px circle, like the lock screen's halftone field. */
-function DotField({ cx, cy, scale, opacity }: { cx: number; cy: number; scale: Animated.Value; opacity: Animated.Value }) {
-  const R = 270;
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={{ position: 'absolute', left: cx - R, top: cy - R, width: R * 2, height: R * 2, opacity, transform: [{ scale }] }}
-    >
-      <Svg width={R * 2} height={R * 2}>
-        <Defs>
-          <Pattern id="dots" x={0} y={0} width={12} height={12} patternUnits="userSpaceOnUse">
-            <Circle cx={6} cy={6} r={2.9} fill={paper.yellow} />
-          </Pattern>
-        </Defs>
-        <Circle cx={R} cy={R} r={R} fill="url(#dots)" />
-      </Svg>
-    </Animated.View>
-  );
-}
-
-function clock(d: Date) {
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
-  const date = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
-  return { time, date };
-}
 
 export function Opening({ notice, ready, onOpen }: { notice: OpeningNotice; ready: boolean; onOpen: () => void }) {
   const reduce = useReduceMotion();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const [now, setNow] = useState(() => new Date());
   const [stamped, setStamped] = useState(false);
   const [opening, setOpening] = useState(false);
   const [waited, setWaited] = useState(false);
 
-  const field = useRef({ scale: new Animated.Value(0.25), opacity: new Animated.Value(0) }).current;
-  const head = useRef(new Animated.Value(0)).current;
+  const mark = useRef(new Animated.Value(0)).current;
   const notif = useRef(new Animated.Value(0)).current;
   const hint = useRef(new Animated.Value(0)).current;
   const flood = useRef(new Animated.Value(0)).current;
-  const breathe = useRef(new Animated.Value(1)).current;
+  const bob = useRef(new Animated.Value(0)).current;
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 15_000);
-    return () => clearInterval(t);
-  }, []);
-
-  // The entrance.
+  // The entrance: the mark drops in, the notification slides down, the hint appears.
   useEffect(() => {
     if (reduce) {
-      for (const v of [field.scale, field.opacity, head, notif, hint]) v.setValue(1);
+      for (const v of [mark, notif, hint]) v.setValue(1);
       setStamped(true);
       setWaited(true);
       return;
     }
     const a = Animated.parallel([
-      Animated.timing(field.scale, { toValue: 1, duration: 900, easing: slap, useNativeDriver: true }),
-      Animated.timing(field.opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(head, { toValue: 1, duration: 450, delay: 150, easing: slap, useNativeDriver: true }),
-      Animated.timing(notif, { toValue: 1, duration: 400, delay: 600, easing: slap, useNativeDriver: true }),
-      Animated.timing(hint, { toValue: 1, duration: 300, delay: 1300, useNativeDriver: true }),
+      Animated.timing(mark, { toValue: 1, duration: 500, easing: slap, useNativeDriver: true }),
+      Animated.timing(notif, { toValue: 1, duration: 420, delay: 350, easing: slap, useNativeDriver: true }),
+      Animated.timing(hint, { toValue: 1, duration: 300, delay: 1000, useNativeDriver: true }),
     ]);
     a.start(() => {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(breathe, { toValue: 1.025, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(breathe, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bob, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(bob, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
       ).start();
     });
-    const s = setTimeout(() => setStamped(true), 1050);
-    const w = setTimeout(() => setWaited(true), 2700);
+    const s = setTimeout(() => setStamped(true), 800);
+    const w = setTimeout(() => setWaited(true), 2200);
     return () => {
       a.stop();
       clearTimeout(s);
       clearTimeout(w);
     };
-  }, [reduce, field, head, notif, hint, breathe]);
+  }, [reduce, mark, notif, hint, bob]);
 
   const open = () => {
     if (opening) return;
@@ -116,40 +78,24 @@ export function Opening({ notice, ready, onOpen }: { notice: OpeningNotice; read
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waited, ready]);
 
-  const { time, date } = clock(now);
-  const cx = width / 2;
-  const cy = height * 0.82;
   const floodSize = Math.hypot(width, height) * 2.1;
+  const cardTop = insets.top + 16;
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${notice.title}. ${notice.body}. Open CurioX`} onPress={open} style={{ flex: 1, backgroundColor: paper.lock, alignItems: 'center', overflow: 'hidden' }}>
-      <Animated.View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, transform: [{ scale: breathe }] }} pointerEvents="none">
-        <DotField cx={cx} cy={cy} scale={field.scale} opacity={field.opacity} />
-      </Animated.View>
-
-      <Animated.View style={{ alignItems: 'center', marginTop: insets.top + 36, opacity: head, transform: [{ translateY: head.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) }] }}>
-        <Text style={{ fontFamily: fonts.disp700, fontSize: 17, lineHeight: 17, color: paper.lockInk2 }}>{date}</Text>
-        <Text style={[type.lockTime, { color: paper.lockInk, marginTop: 4, fontVariant: ['tabular-nums'] }]}>{time}</Text>
-      </Animated.View>
-
-      <View style={{ flex: 1 }} />
-
-      <Animated.View style={{ opacity: hint, marginBottom: 12, paddingTop: 6, paddingBottom: 3, paddingHorizontal: 12, borderRadius: 5, backgroundColor: paper.lock, flexDirection: 'row', alignItems: 'flex-end' }}>
-        <Text style={[type.note, { color: paper.lockInk, lineHeight: 25 }]}>{ready ? 'tap the notification' : 'waking up CurioX'}</Text>
-        {ready && <DownArrow color={paper.lockInk} />}
-      </Animated.View>
-
-      <View style={{ alignSelf: 'stretch', marginHorizontal: 12, marginBottom: Math.max(insets.bottom, 12) + 22, gap: 8 }}>
+    <Ground>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${notice.title}. ${notice.body}. Open CurioX`} onPress={open} style={{ flex: 1, alignItems: 'center', overflow: 'hidden' }}>
+        {/* The notification, as it would arrive on the phone. */}
         <Animated.View
           style={{
+            position: 'absolute',
+            top: cardTop,
+            left: 12,
+            right: 12,
             opacity: notif,
-            transform: [
-              { translateY: notif.interpolate({ inputRange: [0, 1], outputRange: [-22, 0] }) },
-              { scale: notif.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
-            ],
+            transform: [{ translateY: notif.interpolate({ inputRange: [0, 1], outputRange: [-90, 0] }) }, { scale: notif.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
           }}
         >
-          <View style={{ flexDirection: 'row', gap: 11, alignItems: 'flex-start', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 20, backgroundColor: paper.white, boxShadow: '0px 14px 30px -14px rgba(0,0,0,0.9)' }}>
+          <View style={{ flexDirection: 'row', gap: 11, alignItems: 'flex-start', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 20, backgroundColor: paper.white, boxShadow: '0px 14px 30px -14px rgba(20,19,16,0.6)' }}>
             <AppIcon />
             <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -166,39 +112,34 @@ export function Opening({ notice, ready, onOpen }: { notice: OpeningNotice; read
           <Stamp label="New" small thump={stamped} bg={paper.white} style={{ position: 'absolute', right: 16, bottom: -11 }} />
         </Animated.View>
 
-        {notice.old && (
-          <Animated.View style={{ opacity: notif, flexDirection: 'row', gap: 11, alignItems: 'flex-start', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 20, backgroundColor: paper.lock2, transform: [{ scale: 0.95 }] }}>
-            <View style={{ opacity: 0.75 }}>
-              <AppIcon />
-            </View>
-            <View style={{ flex: 1, gap: 1 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={{ fontFamily: fonts.disp700, fontSize: 14.5, color: paper.lockInk2 }}>CurioX</Text>
-                <Text style={{ fontFamily: fonts.body, fontSize: 13, color: paper.lockInk2 }}>{notice.old.when}</Text>
-              </View>
-              <Text numberOfLines={1} style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 19, color: paper.lockInk2 }}>
-                {notice.old.title}
-              </Text>
-            </View>
-          </Animated.View>
-        )}
-      </View>
+        {/* The mark, bobbing gently while the server wakes. */}
+        <View style={{ flex: 1 }} />
+        <Animated.View style={{ alignItems: 'center', gap: 14, opacity: mark, transform: [{ translateY: Animated.add(mark.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }), bob.interpolate({ inputRange: [0, 1], outputRange: [0, -6] })) }, { rotate: mark.interpolate({ inputRange: [0, 1], outputRange: ['-6deg', '-3deg'] }) }] }}>
+          <AppIcon size={96} />
+          <Text style={[type.word, { fontSize: 44, lineHeight: 44, color: paper.ink }]}>CurioX</Text>
+        </Animated.View>
+        <View style={{ flex: 1 }} />
 
-      {/* Opening: yellow floods out from the notification's icon. */}
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: 12 + 14 + 20 - floodSize / 2,
-          top: height - (Math.max(insets.bottom, 12) + 22) - 60 - floodSize / 2,
-          width: floodSize,
-          height: floodSize,
-          borderRadius: floodSize / 2,
-          backgroundColor: paper.yellow,
-          transform: [{ scale: flood.interpolate({ inputRange: [0, 1], outputRange: [0.001, 1] }) }],
-        }}
-      />
-    </Pressable>
+        <Animated.View style={{ opacity: hint, marginBottom: Math.max(insets.bottom, 16) + 24, flexDirection: 'row', alignItems: 'flex-end' }}>
+          <Text style={[type.note, { color: paper.pen, lineHeight: 25 }]}>{ready ? 'tap the notification to open' : 'waking up CurioX'}</Text>
+        </Animated.View>
+
+        {/* Opening: yellow floods out from the notification's icon. */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 12 + 14 + 20 - floodSize / 2,
+            top: cardTop + 33 - floodSize / 2,
+            width: floodSize,
+            height: floodSize,
+            borderRadius: floodSize / 2,
+            backgroundColor: paper.yellow,
+            transform: [{ scale: flood.interpolate({ inputRange: [0, 1], outputRange: [0.001, 1] }) }],
+          }}
+        />
+      </Pressable>
+    </Ground>
   );
 }
 
@@ -214,7 +155,7 @@ export function AppIcon({ size = 40 }: { size?: number }) {
 export function openingNotice(opts: { onboarded: boolean; last: { no: number; date: string; title: string; art: ArtKey } | null; today: string; interests: string[] }): OpeningNotice {
   const { onboarded, last, today, interests } = opts;
   if (!onboarded) {
-    return { title: "Hi, I'm CurioX", body: 'Six quick questions, then your first issue is ready. No sign-up.', art: 'wave_hand' };
+    return { title: "Hi, I'm CurioX", body: 'Five quick questions, then your first issue is ready. No sign-up.', art: 'wave_hand' };
   }
   if (last && last.date === today) {
     return { title: `Issue No. ${last.no} is out`, body: `${last.title}. A few cards, about three minutes.`, art: last.art };
@@ -224,6 +165,5 @@ export function openingNotice(opts: { onboarded: boolean; last: { no: number; da
     title: 'Your new issue is out',
     body: topics ? `Fresh cards on ${topics}, picked for you.` : 'Fresh cards, picked for you.',
     art: 'newspaper',
-    old: last ? { title: `No. ${last.no} · ${last.title}`, when: 'earlier' } : undefined,
   };
 }

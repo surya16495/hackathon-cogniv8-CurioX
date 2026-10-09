@@ -99,7 +99,7 @@ export function interestsQuestion(): ReaderQuestion {
   };
 }
 
-/** Questions 2 to 6 for these interests. Interests outside the bank get the general options. */
+/** Questions 2 to 5 for these interests. Interests outside the bank get the general options. */
 export function tailorQuestions(interests: string[]): ReaderQuestion[] {
   const picked = interests.filter(Boolean);
   const first = picked[0];
@@ -109,8 +109,6 @@ export function tailorQuestions(interests: string[]): ReaderQuestion[] {
 
   const goals = unique([BASE_GOALS[0]!, ...roundRobin(banks.map((b) => b.goals), 3), ...BASE_GOALS.slice(1)]).slice(0, 6);
   const style = unique([...BASE_STYLE.slice(0, 3), first ? `${capital(topicShort(first))} examples` : '', ...BASE_STYLE.slice(3)]);
-  const curious = banks.length ? roundRobin(banks.map((b) => b.curious), 5) : BASE_CURIOUS;
-
   return [
     {
       key: 'level', label: 'Level', q: `How much do you already know about ${about}?`, hint: 'Pick one.', multi: false,
@@ -119,11 +117,13 @@ export function tailorQuestions(interests: string[]): ReaderQuestion[] {
     { key: 'goals', label: 'Learning for', q: 'What are you learning for?', hint: 'Pick as many as you like.', multi: true, options: goals },
     { key: 'style', label: 'Explain with', q: 'How should I explain things?', hint: 'Pick as many as you like.', multi: true, options: style },
     { key: 'tone', label: 'Tone', q: 'How should I sound?', hint: 'Pick one.', multi: false, options: [...TONE_OPTIONS] },
-    {
-      key: 'curious', label: 'Wondering', q: 'What have you been wondering about?', hint: 'Pick any, or write your own.', multi: true, free: true,
-      options: curious,
-    },
   ];
+}
+
+/** Questions a reader could still be wondering about, by interest: Ask's suggestions use them. */
+export function wonderings(interests: string[]): string[] {
+  const banks = interests.map((t) => BANK[t]).filter((b): b is TopicBank => !!b);
+  return banks.length ? roundRobin(banks.map((b) => b.curious), 5) : BASE_CURIOUS;
 }
 
 const capital = (s: string) => (s.length <= 3 && s === s.toLowerCase() ? s.toUpperCase() : s.charAt(0).toUpperCase() + s.slice(1));

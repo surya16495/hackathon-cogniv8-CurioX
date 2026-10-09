@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { levelFromWords, profileFromReader, readerFromProfile, tailorQuestions } from './reader';
+import { levelFromWords, profileFromReader, readerFromProfile, tailorQuestions, wonderings } from './reader';
 import { toArtKey } from './art';
 import { cardSchema } from './zine';
 
 describe('tailorQuestions', () => {
   it('asks about the first interest and offers its own wonderings', () => {
-    const [level, goals, style, , curious] = tailorQuestions(['Cricket', 'Space']);
+    const [level, goals, style] = tailorQuestions(['Cricket', 'Space']);
+    const curious = { options: wonderings(['Cricket', 'Space']), free: true };
     expect(level!.q).toBe('How much do you already know about cricket?');
     expect(level!.options).toContain('I watch every match');
     expect(goals!.options).toContain('Follow matches like a pro');
@@ -18,7 +19,8 @@ describe('tailorQuestions', () => {
 
   it('uses short names and falls back for unknown interests', () => {
     expect(tailorQuestions(['Artificial intelligence'])[0]!.q).toBe('How much do you already know about AI?');
-    const [level, goals, style, , curious] = tailorQuestions(['Pottery']);
+    const [level, goals, style] = tailorQuestions(['Pottery']);
+    const curious = { options: wonderings(['Pottery']) };
     expect(level!.q).toBe('How much do you already know about pottery?');
     expect(level!.options[2]).toBe('I keep up with it');
     expect(goals!.options.length).toBeGreaterThanOrEqual(4);

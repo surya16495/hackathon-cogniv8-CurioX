@@ -51,6 +51,8 @@ const userSchema = new Schema(
     /** Set once the device has signed up or signed in. */
     email: { type: String, lowercase: true, trim: true, unique: true, sparse: true },
     name: { type: String, default: '' },
+    /** A small photo as a data URL. */
+    avatar: { type: String, default: '' },
     passwordHash: { type: String, default: '' },
     profile: { type: profileSchema, default: () => ({}) },
     onboarding: { type: onboardingSchema, default: () => ({}) },

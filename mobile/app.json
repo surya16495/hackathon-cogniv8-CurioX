@@ -44,10 +44,10 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 120,
           "resizeMode": "contain",
-          "backgroundColor": "#12110F",
+          "backgroundColor": "#F4F4F1",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#12110F"
+            "backgroundColor": "#F4F4F1"
           }
         }
       ],
@@ -64,6 +64,6 @@
     "experiments": {
       "typedRoutes": true
     },
-    "backgroundColor": "#12110F"
+    "backgroundColor": "#F4F4F1"
   }
 }

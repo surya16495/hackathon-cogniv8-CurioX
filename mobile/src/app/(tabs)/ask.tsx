@@ -1,7 +1,7 @@
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { topicName } from '@curiox/shared';
+import { topicName, wonderings } from '@curiox/shared';
 import { ApiError, api } from '@/api/client';
 import { useChatStream } from '@/hooks/useChatStream';
 import { useSession } from '@/hooks/useSession';
@@ -39,10 +39,10 @@ export default function AskRoute() {
 
   const suggestions = useMemo(() => {
     const p = session?.profile;
-    const own = p?.curiosities.slice(0, 3) ?? [];
+    const own = p?.curiosities.slice(0, 2) ?? [];
     const news = (p?.interests ?? []).slice(0, 2).map((t) => `What's new in ${topicName(t)}?`);
-    const out = [...own, ...news];
-    return out.length ? out.slice(0, 5) : ['Why do chatbots make things up?', 'How do rockets land themselves?', 'What is the rule of 72?'];
+    const out = [...new Set([...own, ...news, ...wonderings(p?.interests ?? [])])];
+    return out.slice(0, 5);
   }, [session]);
 
   // Every chat with an answer is summarised into cards for Back issues: when the reader leaves

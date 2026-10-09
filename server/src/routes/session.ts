@@ -12,6 +12,8 @@ export function sessionBody(user: UserDoc, isNew = false): SessionResponse {
     onboarding: onboardingState(user),
     isNew,
     account: user.email ? { name: user.name ?? '', email: user.email } : null,
+    avatar: user.avatar || null,
+    name: user.name ?? '',
   };
 }
 

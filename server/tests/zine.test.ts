@@ -78,7 +78,7 @@ describe('onboarding: reader card', () => {
     const { app } = makeApp({ providers: [model] });
     const res = await client(app).post('/api/onboarding/tailor').send({ interests: ['Cricket'] });
     expect(res.status).toBe(200);
-    expect(res.body.questions.map((q: { key: string }) => q.key)).toEqual(['level', 'goals', 'style', 'tone', 'curious']);
+    expect(res.body.questions.map((q: { key: string }) => q.key)).toEqual(['level', 'goals', 'style', 'tone']);
     expect(res.body.questions[0].q).toBe('How much do you already know about cricket?');
     expect(model.completeCalls).toHaveLength(0);
   });
@@ -90,7 +90,6 @@ describe('onboarding: reader card', () => {
     expect(res.body.provider).toBe('groq');
     expect(res.body.questions[0].options[2]).toBe('I throw pots weekly');
     expect(res.body.questions[1].options).toContain('Sell my pots');
-    expect(res.body.questions[4].options).toEqual(['Why do pots crack?', 'What is a glaze?', 'Which clay is best?']);
 
     const broken = makeApp({ providers: [zineModel({ tailor: { regular: '' } })] });
     const res2 = await client(broken.app).post('/api/onboarding/tailor').send({ interests: ['Pottery'] });
