@@ -1,0 +1,22 @@
+{
+  "name": "hackathon-cogniv8-lumora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lumora: a personalized AI learning companion. Express + MongoDB API, React PWA client.",
+  "workspaces": [
+    "packages/*",
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "test": "npm test -w server",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w server",
+    "smoke": "npm run smoke -w server"
+  }
+}

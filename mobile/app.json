@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Lumora",
+    "slug": "lumora",
+    "version": "0.1.0",
+    "scheme": "lumora",
+    "orientation": "portrait"
+  }
+}
