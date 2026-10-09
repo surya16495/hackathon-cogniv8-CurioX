@@ -19,6 +19,9 @@ const deckSchema = new Schema(
     provider: { type: String, enum: PROVIDERS, default: 'demo' },
     /** The issue date (YYYY-MM-DD) for lead and story decks. */
     date: { type: String, default: null },
+    /** For chat decks: the conversation and how many messages it had, so a longer chat refreshes the deck. */
+    conversationId: { type: Types.ObjectId, ref: 'Conversation', default: null },
+    messageCount: { type: Number, default: 0 },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

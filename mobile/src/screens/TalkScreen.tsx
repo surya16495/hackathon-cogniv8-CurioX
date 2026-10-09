@@ -58,15 +58,20 @@ export interface TalkProps {
   onClose: () => void;
   onStaple: (points: TalkPoint[]) => Promise<void>;
   onFinished: (result: TalkFinishResponse) => void;
+  onOpenDeck: (id: string) => void;
 }
 
-export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished }: TalkProps) {
+export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished, onOpenDeck }: TalkProps) {
   const g = useGround();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [phase, setPhase] = useState<Phase>('idle');
   const [points, setPoints] = useState<TalkPoint[]>([]);
   const [caption, setCaption] = useState<{ who: 'you' | 'curiox'; text: string } | null>(null);
+  /** Everything said so far, by both sides, as shown on screen. */
+  const [transcript, setTranscript] = useState<{ who: 'you' | 'curiox'; text: string }[]>([]);
+  const [summaryDeckId, setSummaryDeckId] = useState<string | null>(null);
+  const transcriptRef = useRef<ScrollView>(null);
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
   const [stapling, setStapling] = useState(false);
@@ -112,6 +117,8 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       if (mine !== run.current) return false;
       const p = reply[i]!;
       setCaption({ who: 'curiox', text: p.say });
+      setTranscript((t) => [...t, { who: 'curiox', text: p.say }]);
+      setTimeout(() => transcriptRef.current?.scrollToEnd({ animated: true }), 60);
       const v = voiceRef.current;
       if (v.enabled) await v.say(p.say, { listenAfter: listenAfter && i === reply.length - 1 });
       else await new Promise((r) => setTimeout(r, 700 + p.say.split(' ').length * 140));
@@ -132,6 +139,8 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
     stage.current = 'topic';
     setPoints([]);
     setCaption(null);
+    setTranscript([]);
+    setSummaryDeckId(null);
     setLabel(null);
     setPhaseBoth('opening');
     setBusy(true);
@@ -163,6 +172,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
     const mine = ++run.current;
     setLabel(null);
     setCaption({ who: 'you', text });
+    setTranscript((t) => [...t, { who: 'you', text }]);
     setBusy(true);
     voiceRef.current.setThinking(true);
     let reply: TalkPoint[];
@@ -196,6 +206,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       const res = await api.talkFinish({ topic: topic.current, history: history.current, points: pointsRef.current, date });
       if (mine !== run.current) return;
       onFinished(res);
+      setSummaryDeckId(res.summaryDeckId);
       const extra = res.addedInterest
         ? ` I've added ${res.topic} to what you follow${res.deckId ? ', and put the latest on it on your home' : ''}.`
         : res.deckId
@@ -300,7 +311,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
             const { x, y, width: w, height: h } = e.nativeEvent.layout;
             setArea({ x, y, w, h });
           }}
-          style={{ alignSelf: 'stretch', ...(hasSlips ? { height: Math.min(260, height * 0.3) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
+          style={{ alignSelf: 'stretch', ...(hasSlips || transcript.length ? { height: Math.min(240, height * 0.28) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
         >
           <Text
             style={{
@@ -324,15 +335,23 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
           </Text>
         </Pressable>
 
-        <Text
+        {/* The transcript: what you said in pen, what CurioX said in print. */}
+        <ScrollView
+          ref={transcriptRef}
+          style={{ alignSelf: 'stretch', flexGrow: 0, maxHeight: hasSlips ? 150 : 220, minHeight: 76 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, gap: 8 }}
           accessibilityLiveRegion="polite"
-          style={[
-            caption?.who === 'you' ? { fontFamily: fonts.bodyItalic, fontSize: 17, lineHeight: 24 } : { fontFamily: fonts.disp800, fontSize: 21, lineHeight: 25 },
-            { minHeight: 76, marginTop: 8, marginHorizontal: 24, textAlign: 'center', color: g.onGround },
-          ]}
+          accessibilityLabel="Transcript"
         >
-          {caption ? (caption.who === 'you' ? `“${caption.text}”` : caption.text) : ''}
-        </Text>
+          {transcript.length === 0 && !!caption && (
+            <Text style={{ fontFamily: fonts.disp800, fontSize: 21, lineHeight: 25, textAlign: 'center', color: g.onGround }}>{caption.text}</Text>
+          )}
+          {transcript.map((t, i) => (
+            <Text key={i} style={t.who === 'you' ? { fontFamily: fonts.hand, fontSize: 23, lineHeight: 27, color: g.pen, textAlign: 'right' } : { fontFamily: fonts.disp700, fontSize: 17, lineHeight: 22, color: g.onGround }}>
+              {t.who === 'you' ? `“${t.text}”` : t.text}
+            </Text>
+          ))}
+        </ScrollView>
 
         {hasSlips ? (
           <ScrollView ref={slipsRef} horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, alignItems: 'flex-start', paddingTop: 14, paddingHorizontal: 20, paddingBottom: 10 }}>
@@ -345,7 +364,8 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
         )}
 
         <View style={{ alignSelf: 'stretch', gap: 8, alignItems: 'center', paddingTop: 2, paddingHorizontal: 20, paddingBottom: 8 }}>
-          {hasSlips && phase !== 'talking' && phase !== 'opening' && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
+          {phase === 'done' && summaryDeckId && <Btn label="Open the summary cards" icon="cards" onPress={() => onOpenDeck(summaryDeckId)} />}
+          {hasSlips && phase !== 'talking' && phase !== 'opening' && !summaryDeckId && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
           {!voice.canListen && (
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, paddingRight: 5, paddingLeft: 16, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh }}>
               <TextInput value={typed} onChangeText={setTyped} placeholder="Type to talk" placeholderTextColor={paper.ink2} onSubmitEditing={send} returnKeyType="send" style={{ flex: 1, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }} />

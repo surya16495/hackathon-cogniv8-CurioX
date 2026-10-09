@@ -3,7 +3,7 @@ import { createDeckSchema, talkFinishSchema, talkOpenSchema, talkRequestSchema, 
 import { Conversation, Message, TalkSession, User, type UserDoc } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { quotaLimiter } from '../middleware/rateLimit';
-import { addTopicStory, deckFromConversation, deckFromTalk, discardIssue, getDeck, issueDate, todayIfMade, todayIssue } from '../services/issues';
+import { addTopicStory, deckFromConversation, deckFromTalk, deckFromTalkSummary, discardIssue, getDeck, issueDate, todayIfMade, todayIssue } from '../services/issues';
 import { finishTalk, openTalk, talk, teachBack } from '../services/learn/talk';
 import { sanitizeProfile } from '../services/onboarding/extract';
 import { userProfile } from '../services/onboarding/steps';
@@ -50,7 +50,8 @@ export function decksRouter(services: Services): Router {
     const transcript = recent.map((m) => `${m.role === 'user' ? 'Learner' : 'CurioX'}: ${m.content ?? ''}`).join('\n\n');
     const last = [...recent].reverse().find((m) => m.role === 'assistant' && m.sources?.length);
     const sources: Source[] = (last?.sources ?? []).map((s) => ({ id: s.id, title: s.title ?? '', url: s.url, snippet: s.snippet ?? '' }));
-    res.status(201).json(await deckFromConversation(user, conversation.title ?? 'Your chat', transcript, sources, services.llm));
+    const messageCount = await Message.countDocuments({ conversationId: conversation._id });
+    res.status(201).json(await deckFromConversation(user, conversation._id.toString(), conversation.title ?? 'Your chat', transcript, sources, messageCount, services.llm));
   });
 
   return router;
@@ -99,6 +100,9 @@ export function talkRouter(services: Services): Router {
       deckId = await addTopicStory(user, topic, date, services).catch(() => null);
     }
 
+    // The talk's own summary, under Back issues, whatever the interest score.
+    const summary = body.history.length ? await deckFromTalkSummary(user, result.topic, result.keyPoints, body.points).catch(() => null) : null;
+
     await TalkSession.create({
       userId: user._id,
       date,
@@ -107,10 +111,10 @@ export function talkRouter(services: Services): Router {
       points: body.points,
       interest: result.interest,
       transcript: body.history,
-      deckId,
+      deckId: deckId ?? summary?.id ?? null,
     });
 
-    const payload: TalkFinishResponse = { ...result, addedInterest, deckId, profile: updatedProfile };
+    const payload: TalkFinishResponse = { ...result, addedInterest, deckId, summaryDeckId: summary?.id ?? null, profile: updatedProfile };
     res.json(payload);
   });
 

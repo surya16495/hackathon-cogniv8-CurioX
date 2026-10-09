@@ -26,7 +26,7 @@ import type {
   SuggestedTopicsResponse,
   TranscribeResponse,
 } from '@curiox/shared';
-import { KEYS, storage } from '../lib/storage';
+import { KEYS, loadStorage, storage } from '../lib/storage';
 
 /**
  * EXPO_PUBLIC_API_URL wins. Otherwise, in development, use the laptop running Expo:
@@ -94,6 +94,9 @@ function networkError(err: unknown): ApiError {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  // The device id lives in storage, which loads asynchronously at start-up: a request sent before
+  // it has loaded would invent a new id and lose the reader's data. So every request waits for it.
+  await loadStorage();
   let res: Awaited<ReturnType<typeof fetch>>;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -147,6 +150,7 @@ export const api = {
       body = new File(audio.uri);
       type = audio.type;
     }
+    await loadStorage();
     let res: Awaited<ReturnType<typeof fetch>>;
     try {
       res = await fetch(`${API_URL}/api/voice/transcribe`, {
@@ -192,6 +196,7 @@ export async function wakeServer(opts: { onSlow?: () => void; timeoutMs?: number
 
 /** POST /api/chat and read the Server-Sent Events stream. Resolves when the stream ends. */
 export async function streamChat(body: ChatRequest, onEvent: (event: SseEvent) => void, signal?: AbortSignal): Promise<void> {
+  await loadStorage();
   let res: Awaited<ReturnType<typeof fetch>>;
   try {
     res = await fetch(`${API_URL}/api/chat`, {

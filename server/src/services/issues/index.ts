@@ -417,7 +417,10 @@ export async function discardIssue(user: UserDoc, date: string): Promise<void> {
 
 const looseChatDeck = z.object({ title: z.string().min(1), cards: z.array(z.record(z.any())).min(2) }).passthrough();
 
-export async function deckFromConversation(user: UserDoc, title: string, transcript: string, sources: Source[], llm: LlmService): Promise<Deck> {
+export async function deckFromConversation(user: UserDoc, conversationId: string, title: string, transcript: string, sources: Source[], messageCount: number, llm: LlmService): Promise<Deck> {
+  // One deck per conversation: a chat that has not grown since gets the same cards back.
+  const existing = await DeckModel.findOne({ userId: user._id, conversationId });
+  if (existing && (existing.messageCount ?? 0) >= messageCount) return toDeck(existing);
   const profile = userProfile(user);
   const { data, provider } = await llm.completeJson(
     {
@@ -443,8 +446,23 @@ export async function deckFromConversation(user: UserDoc, title: string, transcr
       cards: (paras.length ? paras : [transcript]).slice(-3).map((p, i) => ({ kind: 'simple', h: i ? `Part ${i + 1}` : truncate(title, 48), body: truncate(p, 360), art: 'speech', note: '', source: null })),
     };
   }
+  if (existing) {
+    existing.set({ title: draft.title, art: draft.art, cards: draft.cards, teach: draft.teach, quiz: draft.quiz, sources: draft.sources, provider: data ? provider : 'demo', messageCount });
+    return toDeck(await existing.save());
+  }
   const no = await nextNumber(user._id);
-  return toDeck(await saveDeck(user._id, no, 'chat', 'from your chat', draft, data ? provider : 'demo', null));
+  const deck = await saveDeck(user._id, no, 'chat', 'from your chat', draft, data ? provider : 'demo', null);
+  deck.set({ conversationId, messageCount });
+  return toDeck(await deck.save());
+}
+
+/** The summary of a finished talk: its key points, one card each. */
+export async function deckFromTalkSummary(user: UserDoc, topic: string, keyPoints: string[], points: { h: string; say: string }[]): Promise<Deck | null> {
+  const cards = validCards(keyPoints.map((k, i) => ({ kind: 'simple', h: points[i]?.h && points[i]!.h.length <= 48 ? points[i]!.h : `Takeaway ${i + 1}`, body: k, art: 'speech', note: '', source: null })));
+  if (!cards.length) return null;
+  const title = truncate(topic.charAt(0).toUpperCase() + topic.slice(1), 60);
+  const no = await nextNumber(user._id);
+  return toDeck(await saveDeck(user._id, no, 'talk', 'from your talk', { title, topic: '', art: 'speech', cards, quiz: [], teach: fallbackTeach(title) }, 'demo', null));
 }
 
 export async function deckFromTalk(user: UserDoc, title: string | undefined, points: { h: string; say: string }[]): Promise<Deck> {

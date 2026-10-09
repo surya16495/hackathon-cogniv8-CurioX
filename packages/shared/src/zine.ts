@@ -254,6 +254,8 @@ export interface TalkFinishResponse {
   addedInterest: boolean;
   /** A story on the topic was added to today's issue. */
   deckId: string | null;
+  /** The talk's own summary deck (key points as cards), shown under Back issues. */
+  summaryDeckId: string | null;
   /** One spoken line to say goodbye with. */
   reply: string;
   profile: Profile;

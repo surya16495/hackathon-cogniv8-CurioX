@@ -197,7 +197,7 @@ export function roughInterest(history: LlmMessage[]): number {
 
 export const interestLevel = (score: number): TalkFinishResponse['level'] => (score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low');
 
-export async function finishTalk(input: { topic?: string; history: LlmMessage[]; points: TalkPoint[] }, profile: Profile, llm: LlmService): Promise<Omit<TalkFinishResponse, 'addedInterest' | 'deckId' | 'profile'>> {
+export async function finishTalk(input: { topic?: string; history: LlmMessage[]; points: TalkPoint[] }, profile: Profile, llm: LlmService): Promise<Omit<TalkFinishResponse, 'addedInterest' | 'deckId' | 'summaryDeckId' | 'profile'>> {
   const transcript = input.history.map((m) => `${m.role === 'user' ? 'Reader' : 'CurioX'}: ${m.content}`).join('\n');
   const { data, provider } = await llm.completeJson(
     {

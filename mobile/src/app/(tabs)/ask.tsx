@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { topicName } from '@curiox/shared';
@@ -12,8 +12,9 @@ export default function AskRoute() {
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; reQ?: string; reA?: string }>();
   const { session } = useSession();
-  const { addDeck } = useZine();
+  const { addDeck, loadToday } = useZine();
   const chat = useChatStream();
+  const focused = useIsFocused();
   const [cardsBusy, setCardsBusy] = useState(false);
   const pending = useRef<string | null>(params.q?.trim() || null);
   const started = useRef(false);
@@ -43,6 +44,42 @@ export default function AskRoute() {
     const out = [...own, ...news];
     return out.length ? out.slice(0, 5) : ['Why do chatbots make things up?', 'How do rockets land themselves?', 'What is the rule of 72?'];
   }, [session]);
+
+  // Every chat with an answer is summarised into cards for Back issues: when the reader leaves
+  // the screen or starts a new chat, once per conversation length (a longer chat refreshes it).
+  const summarised = useRef(new Map<string, number>());
+  const summarise = (conversationId: string | null, count: number) => {
+    if (!conversationId || count < 2 || (summarised.current.get(conversationId) ?? 0) >= count) return;
+    summarised.current.set(conversationId, count);
+    api
+      .createDeck({ from: 'chat', conversationId })
+      .then((deck) => {
+        addDeck(deck);
+        void loadToday();
+      })
+      .catch(() => summarised.current.delete(conversationId));
+  };
+  // Counted once the stream has ended (busy is false); the on-screen typewriter may still be catching up.
+  const answered = chat.items.filter((i) => i.kind === 'message' && i.role === 'assistant' && i.content && !i.error).length;
+  const latest = useRef({ id: chat.conversationId, count: answered * 2, busy: chat.busy });
+  latest.current = { id: chat.conversationId, count: answered * 2, busy: chat.busy };
+  // On leaving the screen, or when an answer finishes after the reader has already left.
+  useEffect(() => {
+    if (!focused && !chat.busy) summarise(latest.current.id, latest.current.count);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused, chat.busy, answered]);
+  useEffect(
+    () => () => {
+      if (!latest.current.busy) summarise(latest.current.id, latest.current.count);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const newChat = () => {
+    summarise(latest.current.id, latest.current.count);
+    chat.newChat();
+  };
 
   const makeCards = async () => {
     if (!chat.conversationId || cardsBusy) return;
@@ -76,7 +113,7 @@ export default function AskRoute() {
       onRetry={chat.retryLast}
       onCards={() => void makeCards()}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
-      onNewChat={chat.newChat}
+      onNewChat={newChat}
     />
   );
 }

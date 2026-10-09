@@ -32,9 +32,10 @@ export default function TalkRoute() {
       }}
       onFinished={(res) => {
         if (session) update(res.profile, session.onboarding);
-        // A new interest or a new story means Home has something new to show.
-        if (res.addedInterest || res.deckId) void loadToday();
+        // A new interest, a new story or the summary deck: Home has something new to show.
+        void loadToday();
       }}
+      onOpenDeck={(id) => router.push({ pathname: '/deck/[id]', params: { id } })}
     />
   );
 }

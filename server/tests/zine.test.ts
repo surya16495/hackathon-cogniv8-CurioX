@@ -247,6 +247,14 @@ describe('decks', () => {
     const res = await c.post('/api/decks').send({ from: 'chat', conversationId: chat.body.conversationId });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ kind: 'chat', title: 'Tides', provider: 'groq' });
+    // The same chat gives the same deck back; a longer chat refreshes it under the same number.
+    const again = await c.post('/api/decks').send({ from: 'chat', conversationId: chat.body.conversationId });
+    expect(again.body.id).toBe(res.body.id);
+    await c.post('/api/chat').send({ message: 'And the sun?', conversationId: chat.body.conversationId, stream: false });
+    const grown = await c.post('/api/decks').send({ from: 'chat', conversationId: chat.body.conversationId });
+    expect(grown.body.id).toBe(res.body.id);
+    expect(grown.body.no).toBe(res.body.no);
+    expect(await DeckModel.countDocuments({ conversationId: chat.body.conversationId })).toBe(1);
     expect((await client(app).get(`/api/decks/${res.body.id}`)).status).toBe(404);
     expect((await c.get('/api/decks/nope')).status).toBe(404);
     expect((await c.post('/api/decks').send({ from: 'chat', conversationId: 'a'.repeat(24) })).status).toBe(404);
@@ -361,8 +369,14 @@ describe('talk and teach', () => {
     expect(res.body.profile.interests).toContain('dew in cricket');
     expect(res.body.profile.reader.interests).toContain('dew in cricket');
     expect(res.body.deckId).toBeTruthy();
+    // The talk's own summary deck sits under Back issues.
+    expect(res.body.summaryDeckId).toBeTruthy();
+    const summary = await c.get(`/api/decks/${res.body.summaryDeckId}`);
+    expect(summary.body).toMatchObject({ kind: 'talk', tag: 'from your talk', title: 'Dew in cricket' });
+    expect(summary.body.cards.map((card: { body: string }) => card.body)).toEqual(['Wet balls slip.', 'Captains bowl first.', 'Watch for towels.']);
     const after = await c.get('/api/issues/today');
     expect(after.body.issue.stories.length).toBe(before.body.issue.stories.length + 1);
+    expect(after.body.backIssues.map((d: { id: string }) => d.id)).toContain(res.body.summaryDeckId);
     const added = after.body.issue.stories.find((s: { id: string }) => s.id === res.body.deckId);
     expect(added).toMatchObject({ topic: 'dew in cricket', tag: 'from your talk' });
     expect((await c.get('/api/profile')).body.profile.interests).toContain('dew in cricket');
