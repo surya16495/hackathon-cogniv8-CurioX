@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png'],
+      includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png'],
       manifest: {
         name: 'CurioX',
         short_name: 'CurioX',
@@ -30,5 +30,13 @@ export default defineConfig({
       },
     }),
   ],
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // Same-origin /api in development: no CORS setup, and phones on the same Wi-Fi just work.
+    proxy: { '/api': { target: 'http://localhost:4000', changeOrigin: true } },
+  },
+  preview: {
+    port: 4173,
+    proxy: { '/api': { target: 'http://localhost:4000', changeOrigin: true } },
+  },
 });

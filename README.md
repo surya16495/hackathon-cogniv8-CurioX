@@ -34,12 +34,15 @@ Requires **Node 24** (`nvm use`, which reads `.nvmrc`).
 npm install
 cp .env.example server/.env     # fill in MONGODB_URI and keys (or set DEMO_MODE=true)
 npm run dev:server              # API on http://localhost:4000
-npm run dev:web                 # web on http://localhost:5173
+npm run dev:web                 # web on http://localhost:5173 (also on your Wi-Fi IP, for phones)
+npm run check-keys -w server    # verify Gemini, Groq and Tavily keys
 npm test                        # server tests (in-memory MongoDB, no API quota used)
 npm run smoke                   # judge journey against the running API
 ```
 
-Hosted: the API runs on a Render free web service (build `npm install && npm run build -w server`, start `npm start -w server`, set the env vars from `.env.example`). The web app is a static site on Vercel or Netlify (build `npm run build -w web`, output `web/dist`, set `VITE_API_URL`). The database is MongoDB Atlas M0, using `curiox_dev` and `curiox_prod`.
+In development the web app calls `/api` on its own origin and Vite proxies it to port 4000, so there's no CORS setup and a phone on the same Wi-Fi can open `http://<laptop-ip>:5173` directly. To install it as an app on a phone, use the hosted HTTPS URL (PWAs need HTTPS).
+
+Hosted: the API runs on a Render free web service (build `npm install && npm run build -w server`, start `npm start -w server`, set the env vars from `.env.example`). The web app is a static site on Vercel or Netlify (build `npm run build -w web`, output `web/dist`, set `VITE_API_URL` to the Render URL and add the site's URL to the API's `CORS_ORIGIN`; `web/vercel.json` and `web/public/_redirects` handle page refreshes on `/profile`). The database is MongoDB Atlas M0, using `curiox_dev` and `curiox_prod`.
 
 ## Team
 
