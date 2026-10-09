@@ -109,7 +109,7 @@ export function AskScreen(p: AskProps) {
 
   return (
     <Ground>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 0) }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, paddingTop: insets.top }}>
         <Bar title="Ask CurioX" onBack={p.onBack} backLabel="Back to Home" right={messages.length ? <Btn label="New" variant="text" onPress={p.onNewChat} accessibilityLabel="Start a new chat" /> : undefined} />
         <ScrollView ref={scroll} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 16, paddingTop: 8, paddingHorizontal: 16, paddingBottom: 18 }}>
           {!messages.length && (

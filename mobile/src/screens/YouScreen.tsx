@@ -30,7 +30,7 @@ export function YouScreen(p: YouProps) {
       <View style={{ paddingTop: insets.top + 4, paddingLeft: 6 }}>
         <IconBtn name="back" label="Back to Home" onPress={p.onBack} />
       </View>
-      <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 22 + insets.bottom }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 10, paddingHorizontal: 20, paddingBottom: 22 }}>
         <T v="xl" accessibilityRole="header">
           Your reader card
         </T>

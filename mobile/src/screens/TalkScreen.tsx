@@ -224,16 +224,17 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
     }
   };
 
-  // Voice lives and dies with this screen: on when the Talk tab opens, off when it goes.
+  // Voice lives only on this screen. The first time Talk opens in a session it says hello by itself;
+  // after a wrap-up, or when the reader comes back from another page, it waits for the blob.
+  const greeted = useRef(false);
   useEffect(() => {
     const v = voiceRef.current;
     if (active) {
       v.setSpeechStyle(VOICE_TONE_SPEECH[tone]);
-      if (phaseRef.current === 'idle' || phaseRef.current === 'done') {
+      if (!greeted.current && phaseRef.current === 'idle') {
+        greeted.current = true;
         v.enable({ quiet: true });
         void start();
-      } else {
-        v.enable();
       }
     } else {
       run.current++;
@@ -253,7 +254,9 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
   const say =
     phase === 'done'
       ? `${label ?? ''}Press to start a new talk`
-      : blobPhase === 'listening'
+      : !voice.enabled && (phase === 'talking' || phase === 'finishing')
+        ? 'Press to carry on'
+        : blobPhase === 'listening'
         ? 'Listening'
         : blobPhase === 'thinking'
           ? 'Thinking'
@@ -264,6 +267,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
   const R = Math.min(area.w * 0.6, area.h * 0.46, 330);
 
   const pressBlob = () => {
+    if (!voice.enabled) voice.enable({ quiet: true });
     if (phase === 'idle' || phase === 'done') return void start();
     if (blobPhase === 'speaking' || blobPhase === 'thinking') run.current++;
     voice.micPress();

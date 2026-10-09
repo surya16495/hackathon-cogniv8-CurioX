@@ -48,8 +48,6 @@ export default function RootLayout() {
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: g.ground }, animation: 'fade' }}>
               <Stack.Screen name="index" options={{ contentStyle: { backgroundColor: paper.lock }, animation: 'none' }} />
-              <Stack.Screen name="deck/[id]" options={{ animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="quiz" options={{ animation: 'slide_from_bottom' }} />
             </Stack>
             <VoiceOverlay />
           </VoiceProvider>

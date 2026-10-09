@@ -325,7 +325,7 @@ export function DeckScreen(p: DeckScreenProps) {
   return (
     <CardBusProvider registry={registry}>
     <Ground>
-      <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 4) }}>
+      <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 4, paddingLeft: 6, paddingRight: 16, minHeight: 50 }}>
           <IconBtn name="x" label="Close deck" onPress={p.onClose} />
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flex: 1 }}>

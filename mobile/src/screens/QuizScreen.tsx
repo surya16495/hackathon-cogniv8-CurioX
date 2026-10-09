@@ -83,7 +83,7 @@ export function QuizScreen(p: QuizProps) {
 
   return (
     <Ground>
-      <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      <View style={{ flex: 1, paddingTop: insets.top }}>
         <Bar title="Quiz" onBack={p.onClose} backIcon="x" backLabel="Close quiz" right={!done && n > 0 ? <Pill label={`${i + 1}/${n}`} /> : undefined} />
         <ScrollView ref={scroll} contentContainerStyle={{ gap: 14, paddingTop: 6, paddingHorizontal: 20, paddingBottom: 22 }}>
           {p.loading && <Note>writing your questions…</Note>}

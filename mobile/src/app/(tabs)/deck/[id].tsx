@@ -8,8 +8,13 @@ import { CantReach, Waking } from '@/screens/Status';
 import { voiceLang } from '@/voice/VoiceProvider';
 
 export default function DeckRoute() {
-  const router = useRouter();
   const { id, card } = useLocalSearchParams<{ id: string; card?: string }>();
+  if (!id) return null;
+  return <DeckInner key={id} id={id} card={card} />;
+}
+
+function DeckInner({ id, card }: { id: string; card?: string }) {
+  const router = useRouter();
   const z = useZine();
   const [deck, setDeck] = useState<Deck | undefined>(() => z.deck(id));
   const [error, setError] = useState<string | null>(null);
