@@ -1,8 +1,13 @@
-import { useState } from 'react';
 import type { QuizItem } from '../../hooks/useChatStream';
 
-export default function QuizCard({ item, onRetry }: { item: QuizItem; onRetry?: () => void }) {
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+interface Props {
+  item: QuizItem;
+  onAnswer: (question: number, option: number) => void;
+  onRetry?: () => void;
+}
+
+export default function QuizCard({ item, onAnswer, onRetry }: Props) {
+  const answers = item.answers;
 
   const shell = 'rounded-2xl border border-brand-200 bg-brand-50/60 p-4 shadow-sm dark:border-brand-900 dark:bg-brand-950/40';
 
@@ -71,8 +76,8 @@ export default function QuizCard({ item, onRetry }: { item: QuizItem; onRetry?: 
                   return (
                     <button
                       key={oi}
-                      disabled={done}
-                      onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
+                      disabled={done || item.ended}
+                      onClick={() => onAnswer(qi, oi)}
                       className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${style}`}
                     >
                       <span className="font-semibold">{String.fromCharCode(65 + oi)}.</span>
@@ -94,6 +99,7 @@ export default function QuizCard({ item, onRetry }: { item: QuizItem; onRetry?: 
         })}
       </ol>
 
+      {item.ended && !finished && <p className="mt-4 text-center text-sm text-slate-500">Quiz ended.</p>}
       {finished && (
         <p className="mt-4 rounded-lg bg-white px-3 py-2 text-center text-sm font-semibold text-brand-800 dark:bg-slate-900 dark:text-brand-100">
           You scored {score}/{quiz.questions.length} {score === quiz.questions.length ? '🎉' : score >= quiz.questions.length / 2 ? '👏' : '💪 Try "Simplify" and quiz again.'}

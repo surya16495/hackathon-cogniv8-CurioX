@@ -4,6 +4,8 @@ import { ApiError, api } from '../api/client';
 import Composer from '../components/Composer';
 import { Logo } from '../components/Logo';
 import { useSession } from '../hooks/useSession';
+import { MicButton, MicFab } from '../voice/VoiceControls';
+import { useVoiceScreen } from '../voice/VoiceProvider';
 
 interface Turn {
   id: number;
@@ -75,6 +77,59 @@ export default function Welcome() {
     push({ role: 'you', text: 'Skipped', skipped: true });
     void call({ skip: 'question' });
   };
+  const begin = () => {
+    resumed.current = true;
+    void call({});
+  };
+  const finishNow = () => void call({ skip: 'all' });
+  const startLearning = () => state?.profile && update(state.profile, state.onboarding);
+  const startOver = () => {
+    setTurns([]);
+    void call({ restart: true });
+  };
+
+  // ---- Voice: every step can be done by speaking ----
+  const lastQuestion = [...turns].reverse().find((t) => t.role === 'curiox')?.text ?? null;
+  const voice = useVoiceScreen(
+    stage === 'intro'
+      ? {
+          screen: 'welcome',
+          intro: "Hi, I'm CurioX, your learning companion. I'll ask six quick questions so my answers fit you. Say start to begin, or skip to explore right away.",
+          onCommand: (cmd) => {
+            if (cmd.type === 'start') begin();
+            else if (cmd.type === 'skipAll') finishNow();
+            else return false;
+          },
+        }
+      : stage === 'asking'
+        ? {
+            screen: 'onboarding',
+            intro: lastQuestion && !pending ? (state?.onboarding.step === 0 ? `${lastQuestion} You can just say your answer.` : lastQuestion) : null,
+            onCommand: (cmd) => {
+              if (pending) return true;
+              if (cmd.type === 'skipQuestion') skipQuestion();
+              else if (cmd.type === 'finish') finishNow();
+              else return false;
+            },
+            onDictation: (text) => {
+              if (!pending && state?.question) answer(text.slice(0, LIMITS.onboardingAnswerMaxChars));
+            },
+          }
+        : {
+            screen: 'ready',
+            intro: state?.profile ? readySpeech(state.profile) : null,
+            onCommand: (cmd) => {
+              if (cmd.type === 'startLearning') startLearning();
+              else if (cmd.type === 'startOver') startOver();
+              else return false;
+            },
+          },
+  );
+  useEffect(() => voice.setThinking(pending), [pending, voice.setThinking]);
+  useEffect(() => {
+    if (error && voice.enabled) void voice.say(`${error} Say try again.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
 
   if (stage === 'intro') {
     return (
@@ -90,17 +145,23 @@ export default function Welcome() {
           <li>🧠 Quizzes on whatever you just learned</li>
         </ul>
         {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <button
             disabled={pending}
-            onClick={() => {
-              resumed.current = true;
-              void call({});
-            }}
+            onClick={begin}
             className="rounded-xl bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
           >
             {pending ? 'Starting…' : "Let's get started"}
           </button>
+          {!voice.enabled && (voice.canListen || voice.canSpeak) && (
+            <button
+              data-voice-control
+              onClick={voice.enable}
+              className="rounded-xl border-2 border-brand-600 px-6 py-3 text-base font-semibold text-brand-700 hover:bg-brand-50 dark:text-brand-200 dark:hover:bg-brand-950"
+            >
+              🎤 Talk to CurioX
+            </button>
+          )}
           <button
             disabled={pending}
             onClick={() => void call({ skip: 'all' })}
@@ -109,13 +170,22 @@ export default function Welcome() {
             Skip, just let me explore
           </button>
         </div>
-        <p className="mt-6 text-xs text-slate-500">No sign-up. Your profile is tied to this device and you can clear it anytime.</p>
+        <p className="mt-6 text-xs text-slate-500">
+          No sign-up. Your profile is tied to this device and you can clear it anytime.
+          {voice.enabled && ' Voice mode is on: say "start" or "skip".'}
+        </p>
+        <MicFab />
       </main>
     );
   }
 
   if (stage === 'finished' && state?.profile) {
-    return <ProfileReady profile={state.profile} onStart={() => update(state.profile!, state.onboarding)} onRestart={() => { setTurns([]); void call({ restart: true }); }} />;
+    return (
+      <>
+        <ProfileReady profile={state.profile} onStart={startLearning} onRestart={startOver} />
+        <MicFab />
+      </>
+    );
   }
 
   const step = state?.onboarding.step ?? 0;
@@ -133,7 +203,7 @@ export default function Welcome() {
             ))}
           </div>
         </div>
-        <button onClick={() => void call({ skip: 'all' })} disabled={pending} className="text-sm text-slate-500 hover:text-slate-800 disabled:opacity-50 dark:hover:text-slate-200">
+        <button onClick={finishNow} disabled={pending} className="text-sm text-slate-500 hover:text-slate-800 disabled:opacity-50 dark:hover:text-slate-200">
           Finish now
         </button>
       </header>
@@ -170,7 +240,15 @@ export default function Welcome() {
       </div>
 
       <footer className="border-t border-slate-200 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-slate-800">
-        <Composer busy={pending} disabled={!state?.question} maxLength={LIMITS.onboardingAnswerMaxChars} placeholder="Type your answer…" autoFocus onSend={answer} />
+        <Composer
+          busy={pending}
+          disabled={!state?.question}
+          maxLength={LIMITS.onboardingAnswerMaxChars}
+          placeholder={voice.enabled ? 'Say or type your answer…' : 'Type your answer…'}
+          autoFocus={!voice.enabled}
+          onSend={answer}
+          voiceButton={<MicButton />}
+        />
         <button onClick={skipQuestion} disabled={pending || !state?.question} className="mt-2 text-sm text-slate-500 hover:text-slate-800 disabled:opacity-50 dark:hover:text-slate-200">
           Skip this question
         </button>
@@ -234,4 +312,18 @@ function ProfileReady({ profile, onStart, onRestart }: { profile: Profile; onSta
       </div>
     </main>
   );
+}
+
+function list(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+function readySpeech(p: Profile): string {
+  const parts: string[] = [];
+  if (p.interests.length) parts.push(`you're into ${list(p.interests.slice(0, 4))}`);
+  if (p.goals.length) parts.push(`you want to ${p.goals[0]!.replace(/^to\s+/i, '')}`);
+  if (p.explanationStyle) parts.push(`you like explanations with ${p.explanationStyle}`);
+  const summary = parts.length ? `Here's what I learned: ${list(parts)}.` : "No problem, we'll figure it out as we go.";
+  return `${summary} Say start learning to begin, or start over to answer again.`;
 }

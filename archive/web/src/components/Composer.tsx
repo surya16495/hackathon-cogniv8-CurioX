@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { LIMITS } from '@curiox/shared';
 
 interface Props {
@@ -9,9 +9,11 @@ interface Props {
   autoFocus?: boolean;
   onSend: (text: string) => void;
   onStop?: () => void;
+  /** Mic button shown next to the send button. */
+  voiceButton?: ReactNode;
 }
 
-export default function Composer({ busy, disabled, placeholder = 'Ask anything…', maxLength = LIMITS.messageMaxChars, autoFocus, onSend, onStop }: Props) {
+export default function Composer({ busy, disabled, placeholder = 'Ask anything…', maxLength = LIMITS.messageMaxChars, autoFocus, onSend, onStop, voiceButton }: Props) {
   const [text, setText] = useState('');
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -61,6 +63,7 @@ export default function Composer({ busy, disabled, placeholder = 'Ask anything�
         className="max-h-40 min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-[16px] outline-none placeholder:text-slate-400 disabled:opacity-60"
       />
       {nearLimit && <span className="self-center text-xs text-slate-400">{maxLength - text.length}</span>}
+      {voiceButton}
       {busy && onStop ? (
         <button type="button" onClick={onStop} aria-label="Stop answering" className="h-10 w-10 shrink-0 rounded-xl bg-slate-800 text-white hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900">
           <span className="mx-auto block h-3 w-3 rounded-sm bg-current" />

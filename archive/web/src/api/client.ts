@@ -12,6 +12,7 @@ import type {
   SessionResponse,
   SseEvent,
   SuggestedTopicsResponse,
+  TranscribeResponse,
 } from '@curiox/shared';
 import { storage } from '../lib/storage';
 
@@ -89,6 +90,21 @@ export const api = {
   messages: (conversationId: string) => request<MessagesResponse>('GET', `/api/conversations/${encodeURIComponent(conversationId)}/messages`),
   quiz: (body: { conversationId?: string; topic?: string; count?: number }) => request<QuizResponse>('POST', '/api/learn/quiz', body),
   chatOnce: (body: ChatRequest) => request<ChatResponse>('POST', '/api/chat', { ...body, stream: false }),
+  /** Fallback speech-to-text for browsers without built-in recognition. */
+  async transcribe(audio: Blob, lang: string): Promise<string> {
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/api/voice/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': audio.type || 'audio/webm', 'X-Device-Id': deviceId(), 'X-Voice-Lang': lang },
+        body: audio,
+      });
+    } catch (err) {
+      throw networkError(err);
+    }
+    if (!res.ok) throw await toApiError(res);
+    return ((await res.json()) as TranscribeResponse).text;
+  },
 };
 
 /**

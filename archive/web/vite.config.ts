@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Where the dev server sends /api. Override to run a second copy against another API.
+const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:4000';
+
 export default defineConfig({
   plugins: [
     react(),
@@ -33,10 +36,10 @@ export default defineConfig({
   server: {
     port: 5173,
     // Same-origin /api in development: no CORS setup, and phones on the same Wi-Fi just work.
-    proxy: { '/api': { target: 'http://localhost:4000', changeOrigin: true } },
+    proxy: { '/api': { target: apiTarget, changeOrigin: true } },
   },
   preview: {
     port: 4173,
-    proxy: { '/api': { target: 'http://localhost:4000', changeOrigin: true } },
+    proxy: { '/api': { target: apiTarget, changeOrigin: true } },
   },
 });

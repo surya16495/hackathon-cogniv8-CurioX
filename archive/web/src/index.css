@@ -109,7 +109,23 @@ body {
   scrollbar-width: none;
 }
 
+@keyframes voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.voice-bar {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: voice-bar 0.9s infinite ease-in-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .voice-bar,
   .typing-dot,
   .cursor-blink::after {
     animation: none;

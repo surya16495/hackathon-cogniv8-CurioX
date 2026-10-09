@@ -23,6 +23,9 @@ export interface QuizItem {
   status: 'loading' | 'ready' | 'error';
   quiz?: QuizResponse;
   error?: string;
+  /** question index -> chosen option index */
+  answers: Record<number, number>;
+  ended?: boolean;
 }
 
 export type ChatItem = UiMessage | QuizItem;
@@ -237,19 +240,30 @@ export function useChatStream() {
     async (topic?: string) => {
       if (!conversationId && !topic) return;
       const id = nextId('q');
-      setItems((list) => [...list, { kind: 'quiz', id, status: 'loading' }]);
+      setItems((list) => [...list, { kind: 'quiz', id, status: 'loading', answers: {} }]);
       try {
         const quiz = await api.quiz(conversationId ? { conversationId } : { topic });
-        setItems((list) => list.map((it) => (it.id === id ? { kind: 'quiz', id, status: 'ready', quiz } : it)));
+        setItems((list) => list.map((it) => (it.id === id ? { kind: 'quiz', id, status: 'ready', quiz, answers: {} } : it)));
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Could not make a quiz right now.';
-        setItems((list) => list.map((it) => (it.id === id ? { kind: 'quiz', id, status: 'error', error: message } : it)));
+        setItems((list) => list.map((it) => (it.id === id ? { kind: 'quiz', id, status: 'error', error: message, answers: {} } : it)));
       }
     },
     [conversationId],
   );
 
+  /** Record an answer once; later taps on the same question are ignored. */
+  const answerQuiz = useCallback((id: string, question: number, option: number) => {
+    setItems((list) =>
+      list.map((it) => (it.kind === 'quiz' && it.id === id && it.answers[question] === undefined ? { ...it, answers: { ...it.answers, [question]: option } } : it)),
+    );
+  }, []);
+
+  const endQuiz = useCallback((id: string) => {
+    setItems((list) => list.map((it) => (it.kind === 'quiz' && it.id === id ? { ...it, ended: true } : it)));
+  }, []);
+
   const hasAnswer = items.some((it) => it.kind === 'message' && it.role === 'assistant' && it.content && !it.error);
 
-  return { items, conversationId, status, busy, loadingHistory, hasAnswer, send, stop, retryLast, newChat, startQuiz };
+  return { items, conversationId, status, busy, loadingHistory, hasAnswer, send, stop, retryLast, newChat, startQuiz, answerQuiz, endQuiz };
 }

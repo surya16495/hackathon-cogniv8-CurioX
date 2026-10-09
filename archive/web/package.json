@@ -7,7 +7,8 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@curiox/shared": "*",
@@ -25,6 +26,7 @@
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
     "vite": "^7.1.9",
-    "vite-plugin-pwa": "^1.0.3"
+    "vite-plugin-pwa": "^1.0.3",
+    "vitest": "^3.2.7"
   }
 }
