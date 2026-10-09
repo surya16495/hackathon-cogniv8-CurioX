@@ -1,4 +1,5 @@
 import { tavily } from '@tavily/core';
+import { createKeyPool, parseKeys } from '../llm/keys';
 import type { RawResult } from './cache';
 
 export interface SearchOptions {
@@ -15,22 +16,30 @@ export interface WebSearcher {
   search(query: string, maxResults: number, opts?: SearchOptions): Promise<RawResult[]>;
 }
 
+/** `apiKey` may be several keys separated by commas; the next is used when one runs out of credits. */
 export function createTavilySearcher(apiKey?: string): WebSearcher {
-  const client = apiKey ? tavily({ apiKey }) : null;
+  const pool = createKeyPool(parseKeys(apiKey), (key) => tavily({ apiKey: key }));
   return {
-    available: () => client !== null,
+    available: () => pool.size > 0,
     async search(query, maxResults, opts = {}) {
-      if (!client) throw new Error('TAVILY_API_KEY is not set');
-      // Basic depth costs 1 credit; advanced costs 2. The free plan has 1,000 credits a month.
-      const res = await client.search(query, {
-        searchDepth: 'basic',
-        maxResults,
-        includeAnswer: false,
-        ...(opts.topic ? { topic: opts.topic } : {}),
-        ...(opts.topic === 'news' && opts.days ? { days: opts.days } : {}),
-        ...(opts.includeDomains?.length ? { includeDomains: opts.includeDomains } : {}),
-      });
-      return (res.results ?? []).map((r) => ({ title: r.title ?? '', url: r.url ?? '', snippet: r.content ?? '' }));
+      for (let attempt = 0; ; attempt++) {
+        const client = pool.current();
+        if (!client) throw new Error('TAVILY_API_KEY is not set');
+        try {
+          // Basic depth costs 1 credit; advanced costs 2. The free plan has 1,000 credits a month.
+          const res = await client.search(query, {
+            searchDepth: 'basic',
+            maxResults,
+            includeAnswer: false,
+            ...(opts.topic ? { topic: opts.topic } : {}),
+            ...(opts.topic === 'news' && opts.days ? { days: opts.days } : {}),
+            ...(opts.includeDomains?.length ? { includeDomains: opts.includeDomains } : {}),
+          });
+          return (res.results ?? []).map((r) => ({ title: r.title ?? '', url: r.url ?? '', snippet: r.content ?? '' }));
+        } catch (err) {
+          if (attempt >= pool.size - 1 || !pool.rotate(client, err)) throw err;
+        }
+      }
     },
   };
 }

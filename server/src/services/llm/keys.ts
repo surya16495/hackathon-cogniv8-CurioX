@@ -11,9 +11,9 @@ export function parseKeys(value?: string | null): string[] {
 export function isRateLimited(err: unknown): boolean {
   const e = err as { status?: number; code?: number; message?: string } | null;
   if (!e) return false;
-  if (e.status === 429 || e.code === 429) return true;
+  if (e.status === 429 || e.code === 429 || e.status === 432 || e.status === 433) return true;
   const m = String(e.message ?? '');
-  return /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|too many requests/i.test(m);
+  return /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|too many requests|usage limit|credits? (exceeded|exhausted|remaining: 0)/i.test(m);
 }
 
 export interface KeyPool<T> {

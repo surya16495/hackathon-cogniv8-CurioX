@@ -157,6 +157,7 @@ describe('API key pools', () => {
     expect(isRateLimited(new Error('429 {"error":{"message":"Rate limit reached"}}'))).toBe(true);
     expect(isRateLimited(new Error('You exceeded your current quota'))).toBe(true);
     expect(isRateLimited(new Error('RESOURCE_EXHAUSTED'))).toBe(true);
+    expect(isRateLimited({ status: 432, message: 'Usage limit exceeded' })).toBe(true); // Tavily
     expect(isRateLimited(new Error('boom'))).toBe(false);
     expect(isRateLimited({ status: 500 })).toBe(false);
     expect(isRateLimited(null)).toBe(false);
