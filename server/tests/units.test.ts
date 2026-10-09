@@ -140,3 +140,51 @@ describe('loadEnv', () => {
 
   it('rejects a bad port', () => expect(() => loadEnv({ MONGODB_URI: 'x', PORT: 'abc' })).toThrow(/PORT/));
 });
+
+
+import { createKeyPool, isRateLimited, parseKeys } from '../src/services/llm/keys';
+
+describe('API key pools', () => {
+  it('parses one or many keys', () => {
+    expect(parseKeys(undefined)).toEqual([]);
+    expect(parseKeys('  ')).toEqual([]);
+    expect(parseKeys('k1')).toEqual(['k1']);
+    expect(parseKeys('k1, k2,k1 k3')).toEqual(['k1', 'k2', 'k3']);
+  });
+
+  it('recognises rate limits from either SDK', () => {
+    expect(isRateLimited({ status: 429 })).toBe(true);
+    expect(isRateLimited(new Error('429 {"error":{"message":"Rate limit reached"}}'))).toBe(true);
+    expect(isRateLimited(new Error('You exceeded your current quota'))).toBe(true);
+    expect(isRateLimited(new Error('RESOURCE_EXHAUSTED'))).toBe(true);
+    expect(isRateLimited(new Error('boom'))).toBe(false);
+    expect(isRateLimited({ status: 500 })).toBe(false);
+    expect(isRateLimited(null)).toBe(false);
+  });
+
+  it('rotates to the next key on a rate limit and stays there', () => {
+    const pool = createKeyPool(['a', 'b', 'c'], (k) => ({ k }));
+    expect(pool.size).toBe(3);
+    const first = pool.current()!;
+    expect(first.k).toBe('a');
+    expect(pool.rotate(first, new Error('server exploded'))).toBe(false);
+    expect(pool.current()!.k).toBe('a');
+    expect(pool.rotate(first, { status: 429 })).toBe(true);
+    expect(pool.current()!.k).toBe('b');
+    // A late failure from the old key does not rotate again.
+    expect(pool.rotate(first, { status: 429 })).toBe(true);
+    expect(pool.current()!.k).toBe('b');
+    expect(pool.rotate(pool.current()!, { status: 429 })).toBe(true);
+    expect(pool.current()!.k).toBe('c');
+    expect(pool.rotate(pool.current()!, { status: 429 })).toBe(true);
+    expect(pool.current()!.k).toBe('a');
+  });
+
+  it('a single key never rotates; no key means unavailable', () => {
+    const one = createKeyPool(['a'], (k) => ({ k }));
+    expect(one.rotate(one.current()!, { status: 429 })).toBe(false);
+    const none = createKeyPool([], (k) => ({ k }));
+    expect(none.size).toBe(0);
+    expect(none.current()).toBeNull();
+  });
+});

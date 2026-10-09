@@ -1,5 +1,6 @@
 // Checks each API key with one tiny request and confirms the configured model IDs exist.
 // Never prints the keys. Usage: npm run check-keys -w server
+import { parseKeys } from '../src/services/llm/keys';
 import { GoogleGenAI, type ThinkingLevel } from '@google/genai';
 import Groq from 'groq-sdk';
 import { tavily } from '@tavily/core';
@@ -28,7 +29,10 @@ async function check(name: string, configured: string | undefined, fn: () => Pro
 async function main() {
   console.log('Checking API keys (one tiny request each)\n');
 
-  const gemini = env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }) : null;
+  const geminiKeys = parseKeys(env.GEMINI_API_KEY);
+  const groqKeys = parseKeys(env.GROQ_API_KEY);
+  if (geminiKeys.length > 1 || groqKeys.length > 1) console.log(`  (${geminiKeys.length} Gemini key(s), ${groqKeys.length} Groq key(s): each is tried below)\n`);
+  const gemini = geminiKeys[0] ? new GoogleGenAI({ apiKey: geminiKeys[0] }) : null;
   for (const model of [env.GEMINI_MODEL_MAIN ?? 'gemini-3.8-flash', env.GEMINI_MODEL_LITE ?? 'gemini-3.5-flash-lite']) {
     await check(`Gemini ${model}`, env.GEMINI_API_KEY, async () => {
       const res = await gemini!.models.generateContent({ model, contents: 'Reply with the single word: ok', config: { maxOutputTokens: 200, thinkingConfig: { thinkingLevel: (model === (env.GEMINI_MODEL_LITE ?? 'gemini-3.5-flash-lite') ? 'MINIMAL' : 'LOW') as ThinkingLevel } } });
