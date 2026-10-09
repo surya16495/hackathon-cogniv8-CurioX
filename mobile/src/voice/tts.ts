@@ -13,7 +13,12 @@ export function stopSpeaking(): void {
  * Speak `text`, cancelling anything already playing. Resolves true when finished,
  * false if it was stopped or replaced.
  */
-export function speak(text: string, lang: string): Promise<boolean> {
+export interface SpeechStyle {
+  rate?: number;
+  pitch?: number;
+}
+
+export function speak(text: string, lang: string, style: SpeechStyle = {}): Promise<boolean> {
   stopSpeaking();
   const mine = generation;
   if (!text.trim()) return Promise.resolve(true);
@@ -43,7 +48,8 @@ export function speak(text: string, lang: string): Promise<boolean> {
       watchdog = setTimeout(() => mine === generation && advance(), 4000 + chunk.length * 110);
       Speech.speak(chunk, {
         language: lang,
-        rate: 1.0,
+        rate: style.rate ?? 1.0,
+        pitch: style.pitch ?? 1.0,
         onDone: advance,
         onStopped: () => {
           advanced = true;

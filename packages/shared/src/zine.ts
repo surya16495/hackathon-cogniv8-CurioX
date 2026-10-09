@@ -2,7 +2,7 @@
 // talk mode and teach-it-back. Model output is validated with these schemas on the server.
 import { z } from 'zod';
 import { toArtKey, type ArtKey } from './art';
-import type { Provider, Source } from './types';
+import type { Profile, Provider, Source } from './types';
 
 // ---------- Reader card (six chip questions) ----------
 export const READER_KEYS = ['interests', 'level', 'goals', 'style', 'tone', 'curious'] as const;
@@ -161,7 +161,7 @@ export const createDeckSchema = z.discriminatedUnion('from', [
   z.object({
     from: z.literal('talk'),
     title: z.string().trim().max(80).optional(),
-    points: z.array(z.object({ h: text(80), say: text(400) })).min(1).max(12),
+    points: z.array(z.object({ h: text(80), say: text(400) })).min(1).max(40),
   }).strict(),
 ]);
 export type CreateDeckRequest = z.infer<typeof createDeckSchema>;
@@ -170,10 +170,55 @@ export type CreateDeckRequest = z.infer<typeof createDeckSchema>;
 export const talkPointSchema = z.object({ h: text(60), say: text(300) });
 export type TalkPoint = z.infer<typeof talkPointSchema>;
 
+/** How the voice sounds: the words and the speech (rate, pitch) both follow it. */
+export const VOICE_TONES = ['friendly', 'casual', 'playful'] as const;
+export type VoiceTone = (typeof VOICE_TONES)[number];
+export const VOICE_TONE_LABEL: Record<VoiceTone, string> = { friendly: 'Friendly', casual: 'Casual', playful: 'Playful' };
+
+/** The reader card's tone chip ("Witty", "Like a coach"…) mapped onto the three voice tones. */
+export function voiceToneOf(tone: string | undefined | null): VoiceTone {
+  const t = (tone ?? '').toLowerCase();
+  if (/playful|witty|fun/.test(t)) return 'playful';
+  if (/casual|blunt|chill|relaxed/.test(t)) return 'casual';
+  return 'friendly';
+}
+
+/** How the device voice speaks each tone. */
+export const VOICE_TONE_SPEECH: Record<VoiceTone, { rate: number; pitch: number }> = {
+  friendly: { rate: 1.0, pitch: 1.0 },
+  casual: { rate: 1.02, pitch: 0.94 },
+  playful: { rate: 1.08, pitch: 1.12 },
+};
+
+/**
+ * The guided conversation. The server drives it: every reply ends with the question the next
+ * stage needs, and the client only passes the stage back.
+ *   topic   → the reader says what to learn about
+ *   view    → CurioX explained it and asked for their view
+ *   reflect → CurioX reacted, explained the impact, and asked what they make of that
+ *   free    → open conversation until they wrap up
+ */
+export const TALK_STAGES = ['topic', 'view', 'reflect', 'free'] as const;
+export type TalkStage = (typeof TALK_STAGES)[number];
+
+const talkHistory = z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(2000) })).max(16).default([]);
+
+/** POST /api/talk/open: the greeting, with today's updates. */
+export const talkOpenSchema = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), hour: z.number().int().min(0).max(23).optional() }).strict();
+export interface TalkOpenResponse {
+  points: TalkPoint[];
+  reply: string;
+  stage: TalkStage;
+  provider: Provider;
+}
+
 export const talkRequestSchema = z
   .object({
     message: text(1000),
-    history: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(2000) })).max(12).default([]),
+    history: talkHistory,
+    stage: z.enum(TALK_STAGES).default('free'),
+    topic: z.string().trim().max(80).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
   .strict();
 export interface TalkResponse {
@@ -181,6 +226,37 @@ export interface TalkResponse {
   reply: string;
   /** The same reply as key points, each dropped onto the screen as a slip. */
   points: TalkPoint[];
+  /** Where the conversation is now. */
+  stage: TalkStage;
+  /** The topic being talked about, once there is one. */
+  topic: string | null;
+  /** The reader said goodbye in their own words. */
+  done: boolean;
+  provider: Provider;
+}
+
+/** POST /api/talk/finish: keep the key points, score the interest, update the reader. */
+export const talkFinishSchema = z
+  .object({
+    topic: z.string().trim().max(80).optional(),
+    history: talkHistory,
+    points: z.array(talkPointSchema).max(30).default([]),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  })
+  .strict();
+export interface TalkFinishResponse {
+  topic: string;
+  keyPoints: string[];
+  /** 0 to 100: how keen the reader seemed on the topic. */
+  interest: number;
+  level: 'low' | 'medium' | 'high';
+  /** The topic was added to the reader's interests. */
+  addedInterest: boolean;
+  /** A story on the topic was added to today's issue. */
+  deckId: string | null;
+  /** One spoken line to say goodbye with. */
+  reply: string;
+  profile: Profile;
   provider: Provider;
 }
 

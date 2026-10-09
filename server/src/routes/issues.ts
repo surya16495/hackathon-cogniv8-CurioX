@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { createDeckSchema, talkRequestSchema, teachRequestSchema, type Source } from '@curiox/shared';
-import { Conversation, Message } from '../db/models';
+import { createDeckSchema, talkFinishSchema, talkOpenSchema, talkRequestSchema, teachRequestSchema, type Source, type TalkFinishResponse } from '@curiox/shared';
+import { Conversation, Message, TalkSession, User, type UserDoc } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { quotaLimiter } from '../middleware/rateLimit';
-import { deckFromConversation, deckFromTalk, discardIssue, getDeck, issueDate, todayIssue } from '../services/issues';
-import { talk, teachBack } from '../services/learn/talk';
+import { addTopicStory, deckFromConversation, deckFromTalk, discardIssue, getDeck, issueDate, todayIfMade, todayIssue } from '../services/issues';
+import { finishTalk, openTalk, talk, teachBack } from '../services/learn/talk';
+import { sanitizeProfile } from '../services/onboarding/extract';
 import { userProfile } from '../services/onboarding/steps';
 import { notFound } from '../utils/errors';
 import type { Services } from '../services';
@@ -57,11 +58,60 @@ export function decksRouter(services: Services): Router {
 
 export function talkRouter(services: Services): Router {
   const router = Router();
+  const issueFor = (user: UserDoc, date: unknown) => todayIfMade(user, issueDate(date));
 
-  // POST /api/talk: one spoken turn, returned as key points.
-  router.post('/', quotaLimiter(20), async (req, res) => {
+  // POST /api/talk/open: the greeting with today's updates, then "what do you want to learn about?"
+  router.post('/open', quotaLimiter(20), async (req, res) => {
+    const user = currentUser(req);
+    const body = talkOpenSchema.parse(req.body ?? {});
+    const issue = await issueFor(user, body.date);
+    res.json(await openTalk(userProfile(user), issue, body.hour ?? new Date().getHours(), services.llm));
+  });
+
+  // POST /api/talk: one spoken turn, returned as key points, with the next stage.
+  router.post('/', quotaLimiter(30), async (req, res) => {
+    const user = currentUser(req);
     const body = talkRequestSchema.parse(req.body ?? {});
-    res.json(await talk(body.message, body.history, userProfile(currentUser(req)), services.llm));
+    const issue = await issueFor(user, body.date);
+    res.json(await talk({ message: body.message, history: body.history, stage: body.stage, topic: body.topic, issue }, userProfile(user), services.llm));
+  });
+
+  // POST /api/talk/finish: keep the key points, score the interest, update the reader.
+  router.post('/finish', quotaLimiter(10), async (req, res) => {
+    const user = currentUser(req);
+    const body = talkFinishSchema.parse(req.body ?? {});
+    const date = issueDate(body.date);
+    const profile = userProfile(user);
+    const result = await finishTalk({ topic: body.topic, history: body.history, points: body.points }, profile, services.llm);
+
+    let addedInterest = false;
+    let deckId: string | null = null;
+    let updatedProfile = profile;
+    if (result.level === 'high') {
+      const topic = result.topic.trim();
+      const known = profile.interests.some((i) => i.toLowerCase() === topic.toLowerCase());
+      if (!known && topic) {
+        const reader = profile.reader ? { ...profile.reader, interests: [...profile.reader.interests, topic] } : undefined;
+        updatedProfile = sanitizeProfile({ ...profile, interests: [...profile.interests, topic], ...(reader ? { reader } : {}) });
+        await User.updateOne({ _id: user._id }, { $set: { profile: updatedProfile } });
+        addedInterest = true;
+      }
+      deckId = await addTopicStory(user, topic, date, services).catch(() => null);
+    }
+
+    await TalkSession.create({
+      userId: user._id,
+      date,
+      topic: result.topic,
+      keyPoints: result.keyPoints,
+      points: body.points,
+      interest: result.interest,
+      transcript: body.history,
+      deckId,
+    });
+
+    const payload: TalkFinishResponse = { ...result, addedInterest, deckId, profile: updatedProfile };
+    res.json(payload);
   });
 
   // POST /api/talk/teach: mark a teach-it-back answer.

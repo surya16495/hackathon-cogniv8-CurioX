@@ -1,6 +1,6 @@
 // Ask CurioX: questions on ink strips, answers on taped-down paper, learn actions underneath,
 // and any answer can be turned into a deck of cards.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LEARN_ACTIONS, type LearnActionId, type Source } from '@curiox/shared';
@@ -89,7 +89,6 @@ export interface AskProps {
   onCards: () => void;
   onBack: () => void;
   onNewChat: () => void;
-  mic?: ReactNode;
 }
 
 export function AskScreen(p: AskProps) {
@@ -163,7 +162,6 @@ export function AskScreen(p: AskProps) {
             maxLength={4000}
             style={{ flex: 1, minWidth: 0, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }}
           />
-          {p.mic}
           {p.busy ? (
             <IconBtn name="pause" label="Stop the answer" color={paper.ink} onPress={p.onStop} />
           ) : (

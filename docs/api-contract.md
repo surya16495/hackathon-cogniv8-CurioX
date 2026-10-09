@@ -139,6 +139,9 @@ The reader's issue for `date` (their local date; implausible dates fall back to 
 ### `GET /api/decks/:id` · `POST /api/decks`
 `POST` body is `{ "from": "chat", "conversationId" }` ("Show as cards") or `{ "from": "talk", "title"?, "points": [{ h, say }] }` ("Staple into a deck"). Returns the new `Deck` (201). Decks belong to the device; other devices get 404.
 
-### `POST /api/talk` · `POST /api/talk/teach`
-- `talk`: `{ "message", "history"?: [{ role, content }] }` → `{ "reply", "points": [{ h, say }], "provider" }`. Plain spoken sentences, no Markdown.
-- `teach`: `{ "q", "said", "sample"? }` → `{ "verdict": "got_it" | "nearly" | "not_yet", "feedback", "add", "provider" }`.
+### Talk: `POST /api/talk/open` · `POST /api/talk` · `POST /api/talk/finish` · `POST /api/talk/teach`
+Voice lives only in the Talk tab. The server drives a guided conversation; every reply is plain spoken sentences, returned as points (each becomes a slip on screen). The words and the device voice (rate, pitch) follow the reader's tone: `friendly`, `casual` or `playful` (`voiceToneOf(profile.tone)`; the Talk screen's chips set `profile.tone`).
+- `open` `{ date?, hour? }` → `{ points, reply, stage: "topic", provider }`: hello, what's new in today's issue, "what do you want to learn about?".
+- `talk` `{ message, history?, stage, topic?, date? }` → `{ points, reply, stage, topic, done, provider }`. Stages: `topic` (explain, ask their view) → `view` (react, explain the impact, ask what they make of it) → `reflect` (respond, offer to go deeper or wrap up) → `free`. Each guided stage always ends on a question. `done` is true when the reader says goodbye (also offline).
+- `finish` `{ topic?, history, points, date? }` → `{ topic, keyPoints, interest (0–100), level, addedInterest, deckId, reply, profile, provider }`. Saves a `TalkSession`. With `level: "high"` the topic is added to the reader's interests (profile and reader card) and, if there is news on it, a story deck tagged "from your talk" is added to today's issue so Home shows it under the new interest.
+- `teach` `{ q, said, sample? }` → `{ verdict: "got_it" | "nearly" | "not_yet", feedback, add, provider }`.

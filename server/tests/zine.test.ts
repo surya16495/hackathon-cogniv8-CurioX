@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { cardSchema } from '@curiox/shared';
-import { DeckModel, IssueModel } from '../src/db/models';
+import { DeckModel, IssueModel, TalkSession } from '../src/db/models';
 import { assembleLead, issueDate, youtubeId } from '../src/services/issues';
-import { roughMark } from '../src/services/learn/talk';
+import { roughInterest, roughMark, withClosingQuestion } from '../src/services/learn/talk';
 import { client, fakeProvider, fakeSearcher, makeApp } from './helpers';
 
 const reader = {
@@ -42,15 +42,18 @@ const stories = { stories: [{ item: 1, title: 'Dew decides night games', art: 'd
 ], teach: { q: 'Why does dew matter? One sentence.', sample: 'A wet ball is hard to grip.', add: 'captains bowl first' }, quiz: [] }] };
 
 /** One fake model that answers each job by its system prompt. */
-function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'teach' | 'tailor' | 'chatdeck', unknown>> = {}) {
+function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open' | 'finish' | 'teach' | 'tailor' | 'chatdeck', unknown>> = {}) {
   return fakeProvider({
     name: 'groq',
     complete: (req) => {
       const s = req.system;
       const pick = (k: keyof typeof overrides, v: unknown) => JSON.stringify(k in overrides ? overrides[k] : v);
-      if (s.includes('lead story')) return pick('lead', lead);
+      // The talk prompts mention "lead story" too, so they are checked first.
+      if (s.includes('opening a spoken conversation')) return pick('open', { points: [{ h: 'Good evening!', say: 'Good evening! Great to see you.' }, { h: 'Today', say: 'Today: rockets that land themselves.' }, { h: 'Your pick', say: 'What do you want to learn about?' }], topic: '', done: false });
+      if (s.includes('lead story of a personal daily')) return pick('lead', lead);
       if (s.includes('short story decks')) return pick('stories', stories);
-      if (s.includes('"points"')) return pick('talk', { points: [{ h: 'Short answer', say: 'It is all about grip.' }, { h: 'Why', say: 'Wet balls slip.' }] });
+      if (s.includes('"keyPoints"')) return pick('finish', { topic: 'dew in cricket', keyPoints: ['Wet balls slip.', 'Captains bowl first.', 'Watch for towels.'], interest: 85, reason: 'Asked lots.', goodbye: 'Lovely chat. Remember: wet ball, bowl first!' });
+      if (s.includes('"points"')) return pick('talk', { points: [{ h: 'Short answer', say: 'It is all about grip.' }, { h: 'Why', say: 'Wet balls slip.' }], topic: 'dew in cricket', done: false });
       if (s.includes('verdict')) return pick('teach', { verdict: 'got_it', feedback: 'Nailed it.', add: 'mention the toss.' });
       if (s.includes('onboarding chips')) return pick('tailor', { regular: 'I throw pots weekly', goals: ['Sell my pots'], curious: ['Why do pots crack?', 'What is a glaze?', 'Which clay is best?'] });
       if (s.includes('Turn this conversation')) return pick('chatdeck', { title: 'Tides', art: 'wave', cards: [{ h: 'Moon pulls', body: 'The moon pulls the sea.', art: 'moon' }, { h: 'Twice a day', body: 'Two bulges.', art: 'wave' }], teach: lead.teach, quiz: [] });
@@ -261,18 +264,132 @@ describe('decks', () => {
 });
 
 describe('talk and teach', () => {
-  it('talk returns spoken points', async () => {
-    const { app } = makeApp({ providers: [zineModel()] });
-    const res = await client(app).post('/api/talk').send({ message: 'Why does dew matter?' });
-    expect(res.body).toMatchObject({ provider: 'groq', reply: 'It is all about grip. Wet balls slip.' });
-    expect(res.body.points).toHaveLength(2);
+  it('open greets with today and asks what to learn about', async () => {
+    const model = zineModel();
+    const { app } = makeApp({ providers: [model] });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    const res = await c.post('/api/talk/open').send({ hour: 19 });
+    expect(res.body).toMatchObject({ stage: 'topic', provider: 'groq' });
+    expect(res.body.points).toHaveLength(3);
+    expect(res.body.reply).toContain('Good evening');
+    expect(model.completeCalls.at(-1)!.system).toContain('Good evening!');
   });
 
-  it('talk without a model says it is offline, in points', async () => {
+  it('open without a model still greets and mentions the issue', async () => {
     const { app } = makeApp();
-    const res = await client(app).post('/api/talk').send({ message: 'Hi', history: [{ role: 'assistant', content: 'Hello' }] });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader: { ...reader, interests: ['Cricket'] } });
+    await c.get('/api/issues/today');
+    const res = await c.post('/api/talk/open').send({ hour: 9 });
     expect(res.body.provider).toBe('demo');
-    expect(res.body.points[0].h).toBe('I am offline');
+    expect(res.body.reply).toMatch(/^Good morning!/);
+    expect(res.body.reply).toContain("Today's big one: Small AI models, big deal.");
+    expect(res.body.reply).toContain('Also on your home: Why captains fear the dew.');
+    expect(res.body.stage).toBe('topic');
+  });
+
+  it("the greeting's update line comes from the issue, not the model", async () => {
+    const { app } = makeApp({ providers: [zineModel()] });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader: { ...reader, interests: ['Cricket'] } });
+    await c.get('/api/issues/today'); // demo issue: the model's lead/story JSON is not used without search results
+    const res = await c.post('/api/talk/open').send({ hour: 19 });
+    expect(res.body.points.map((p: { h: string }) => p.h)).toEqual(['Good evening!', 'Today', 'Your pick']);
+    expect(res.body.points[1].say).toContain("Today's big one:");
+    expect(res.body.reply).not.toContain('rockets that land themselves'); // the model's made-up update is dropped
+  });
+
+  it('a turn moves through the stages and keeps the topic', async () => {
+    const model = zineModel();
+    const { app } = makeApp({ providers: [model] });
+    const c = client(app);
+    const t1 = await c.post('/api/talk').send({ message: 'dew in night matches', stage: 'topic' });
+    expect(t1.body).toMatchObject({ stage: 'view', topic: 'dew in cricket', done: false, provider: 'groq', reply: "It is all about grip. Wet balls slip. So, what's your take on that?" });
+    expect(model.completeCalls.at(-1)!.system).toContain('asking for their view');
+    const t2 = await c.post('/api/talk').send({ message: 'I think it is overrated', stage: 'view', topic: 'dew in cricket', history: [{ role: 'user', content: 'dew' }, { role: 'assistant', content: 'grip' }] });
+    expect(t2.body.stage).toBe('reflect');
+    expect(model.completeCalls.at(-1)!.system).toContain('IMPACT');
+    const t3 = await c.post('/api/talk').send({ message: 'interesting', stage: 'reflect', topic: 'dew in cricket' });
+    expect(t3.body.stage).toBe('free');
+    const bye = await c.post('/api/talk').send({ message: "that's all, bye", stage: 'free', topic: 'dew in cricket' });
+    expect(bye.body.done).toBe(true);
+  });
+
+  it('a guided stage always ends on a question, even if the model forgot', async () => {
+    const model = zineModel({ talk: { points: [{ h: 'Grip', say: 'Wet balls slip.' }], topic: 'dew', done: false } });
+    const { app } = makeApp({ providers: [model] });
+    const res = await client(app).post('/api/talk').send({ message: 'dew', stage: 'topic' });
+    expect(res.body.reply).toBe("Wet balls slip. So, what's your take on that?");
+    expect(withClosingQuestion([{ h: 'x', say: 'Really?' }], 'view', false)).toHaveLength(1);
+    expect(withClosingQuestion([{ h: 'x', say: 'y' }], 'free', false)[0]!.say).toBe('y');
+    expect(withClosingQuestion([{ h: 'x', say: 'Bye.' }], 'view', true)[0]!.say).toBe('Bye.');
+  });
+
+  it('the tone follows the reader card', async () => {
+    const model = zineModel();
+    const { app } = makeApp({ providers: [model] });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader: { ...reader, tone: ['Playful'] } });
+    await c.post('/api/talk').send({ message: 'hi', stage: 'free' });
+    expect(model.completeCalls.at(-1)!.system).toContain('Tone: PLAYFUL');
+  });
+
+  it('talk without a model says it lost the line, but a goodbye still ends the talk', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    const res = await c.post('/api/talk').send({ message: 'Hi', history: [{ role: 'assistant', content: 'Hello' }] });
+    expect(res.body.provider).toBe('demo');
+    expect(res.body.points[0].h).toBe('Lost the line');
+    expect(res.body).toMatchObject({ stage: 'free', done: false });
+    const bye = await c.post('/api/talk').send({ message: "okay that's all, bye", stage: 'view' });
+    expect(bye.body).toMatchObject({ done: true, provider: 'demo' });
+    expect(bye.body.points[0].h).toBe('Bye for now');
+  });
+
+  it('finish keeps the key points and, when interest is high, adds the topic and a story on Home', async () => {
+    const model = zineModel({ stories: { stories: [{ item: 1, title: 'Dew decides night games', art: 'droplet', sourceIndex: 1, cards: stories.stories[0]!.cards, teach: lead.teach, quiz: [] }] } });
+    const { app } = makeApp({ providers: [model], searcher: fakeSearcher(news('dew')) });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    const before = await c.get('/api/issues/today');
+    const res = await c.post('/api/talk/finish').send({ topic: 'dew', history: [{ role: 'user', content: 'tell me about dew' }, { role: 'assistant', content: 'wet ball' }], points: [{ h: 'Grip', say: 'Wet balls slip.' }] });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ topic: 'dew in cricket', interest: 85, level: 'high', addedInterest: true, provider: 'groq' });
+    expect(res.body.keyPoints).toHaveLength(3);
+    expect(res.body.reply).toContain('Lovely chat');
+    expect(res.body.profile.interests).toContain('dew in cricket');
+    expect(res.body.profile.reader.interests).toContain('dew in cricket');
+    expect(res.body.deckId).toBeTruthy();
+    const after = await c.get('/api/issues/today');
+    expect(after.body.issue.stories.length).toBe(before.body.issue.stories.length + 1);
+    const added = after.body.issue.stories.find((s: { id: string }) => s.id === res.body.deckId);
+    expect(added).toMatchObject({ topic: 'dew in cricket', tag: 'from your talk' });
+    expect((await c.get('/api/profile')).body.profile.interests).toContain('dew in cricket');
+    expect(await TalkSession.countDocuments({ topic: 'dew in cricket' })).toBe(1);
+  });
+
+  it('finish with low interest changes nothing', async () => {
+    const model = zineModel({ finish: { topic: 'tides', keyPoints: ['Moon pulls.'], interest: 30, reason: 'short answers', goodbye: 'Bye!' } });
+    const { app } = makeApp({ providers: [model] });
+    const c = client(app);
+    await c.post('/api/onboarding/complete').send({ reader });
+    const res = await c.post('/api/talk/finish').send({ topic: 'tides', history: [{ role: 'user', content: 'ok' }] });
+    expect(res.body).toMatchObject({ level: 'low', addedInterest: false, deckId: null });
+    expect(res.body.profile.interests).not.toContain('tides');
+  });
+
+  it('finish without a model scores by how much the reader said', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    const chatty = Array.from({ length: 5 }, (_, i) => [{ role: 'user', content: `I think this is fascinating because of reason number ${i}, and also what about the other side of it?` }, { role: 'assistant', content: 'Good point.' }]).flat();
+    const res = await c.post('/api/talk/finish').send({ topic: 'rockets', history: chatty, points: [{ h: 'Reuse', say: 'Boosters land.' }] });
+    expect(res.body.provider).toBe('demo');
+    expect(res.body.level).toBe('high');
+    expect(res.body.keyPoints).toEqual(['Boosters land.']);
+    const quiet = await c.post('/api/talk/finish').send({ topic: 'rockets', history: [{ role: 'user', content: 'ok' }] });
+    expect(quiet.body.level).toBe('low');
+    expect(roughInterest([])).toBe(20);
   });
 
   it('teach marks an answer and tidies the "add" line', async () => {

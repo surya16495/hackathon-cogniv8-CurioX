@@ -1,18 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { READER_KEYS, READER_LABELS, blankReader, readerFromProfile, type ReaderCard, type ReaderKey } from '@curiox/shared';
+import { blankReader, readerFromProfile, type ReaderCard } from '@curiox/shared';
 import { api } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 import { useZine } from '@/hooks/useZine';
 import { KEYS, storage } from '@/lib/storage';
 import { Waking } from '@/screens/Status';
 import { YouScreen } from '@/screens/YouScreen';
-import { MicFab } from '@/voice/VoiceControls';
-import { useVoiceScreen } from '@/voice/VoiceProvider';
-import { sayList } from '@/voice/match';
-
-const FIELD: Record<string, ReaderKey> = { interests: 'interests', goals: 'goals', curiosities: 'curious', tone: 'tone', explanationStyle: 'style' };
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function YouRoute() {
   const router = useRouter();
@@ -73,76 +67,17 @@ export default function YouRoute() {
     router.replace('/onboard');
   };
 
-  const voice = useVoiceScreen({
-    screen: 'profile',
-    confirming,
-    intro: confirming ? 'Clear everything CurioX knows about you? Say yes or no.' : null,
-    onCommand: (cmd) => {
-      switch (cmd.type) {
-        case 'readProfile': {
-          const lines = READER_KEYS.filter((k) => reader[k].length).map((k) => `${READER_LABELS[k]}: ${sayList(reader[k])}.`);
-          void voice.say(lines.length ? lines.join(' ') : 'Your card is empty. Say redo onboarding to fill it in.');
-          return;
-        }
-        case 'profileAdd': {
-          const k = FIELD[cmd.field]!;
-          const v = capital(cmd.value.trim());
-          if (!reader[k].some((x) => x.toLowerCase() === v.toLowerCase())) change({ ...reader, [k]: [...reader[k], v] });
-          void voice.say(`Added ${v}.`);
-          return;
-        }
-        case 'profileRemove': {
-          const k = FIELD[cmd.field]!;
-          const left = reader[k].filter((x) => !x.toLowerCase().includes(cmd.value.toLowerCase()));
-          if (left.length === reader[k].length) return void voice.say(`I couldn't find ${cmd.value} on your card.`);
-          change({ ...reader, [k]: left });
-          void voice.say(`Removed ${cmd.value}.`);
-          return;
-        }
-        case 'profileSet': {
-          const k = FIELD[cmd.field]!;
-          change({ ...reader, [k]: k === 'tone' ? [capital(cmd.value)] : cmd.value.split(/,| and /).map((x) => capital(x.trim())).filter(Boolean) });
-          void voice.say(`Done. ${READER_LABELS[k]}: ${cmd.value}.`);
-          return;
-        }
-        case 'redoOnboarding':
-          router.push('/onboard');
-          return;
-        case 'clearAll':
-          setConfirming(true);
-          return;
-        case 'confirm':
-          if (confirming) void clear();
-          return;
-        case 'cancel':
-          setConfirming(false);
-          void voice.say('Kept it.');
-          return;
-        case 'back':
-        case 'goHome':
-          router.canGoBack() ? router.back() : router.replace('/home');
-          return;
-      }
-      return false;
-    },
-  });
-
   if (!session) return <Waking title="Opening your card" body="One moment." status="Loading" />;
   return (
-    <>
-      <YouScreen
-        reader={reader}
-        saving={saving}
-        onChange={change}
-        onRedo={() => router.push('/onboard')}
-        onClear={() => void clear()}
-        onBack={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
-        confirming={confirming}
-        setConfirming={setConfirming}
-        voiceOn={voice.enabled}
-        onVoice={voice.toggle}
-      />
-      <MicFab />
-    </>
+    <YouScreen
+      reader={reader}
+      saving={saving}
+      onChange={change}
+      onRedo={() => router.push('/onboard')}
+      onClear={() => void clear()}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
+      confirming={confirming}
+      setConfirming={setConfirming}
+    />
   );
 }

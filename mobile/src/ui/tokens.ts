@@ -1,6 +1,6 @@
 // Design tokens from the zine design: paper ground, yellow paper, black ink, state marked by hand.
 // Paper pieces (panels, strips, sheets, chips) keep paper inks in both themes; only the ground changes.
-import { useColorScheme, type TextStyle } from 'react-native';
+import type { TextStyle } from 'react-native';
 
 export const paper = {
   yellow: '#FFB81C',
@@ -35,25 +35,11 @@ const light = {
   shUp: '0px 2px 2px rgba(20,19,16,0.1), 0px 18px 28px -14px rgba(20,19,16,0.5)',
 };
 
-const dark: typeof light = {
-  scheme: 'dark',
-  ground: '#161512',
-  onGround: '#F3F1EA',
-  onGround2: '#BBB7AB',
-  rule: 'rgba(243,241,234,0.28)',
-  strip: '#EFECE2',
-  pen: '#A9BBFF',
-  good: '#6FD8A4',
-  bad: '#FF8F85',
-  scrim: 'rgba(0,0,0,0.64)',
-  sh: '0px 1px 1px rgba(0,0,0,0.5), 0px 10px 18px -9px rgba(0,0,0,0.85)',
-  shUp: '0px 2px 2px rgba(0,0,0,0.5), 0px 20px 30px -14px rgba(0,0,0,0.9)',
-};
-
 export type Ground = typeof light;
 
+/** Always the light paper ground: the design is a daily zine on paper, in any system theme. */
 export function useGround(): Ground {
-  return useColorScheme() === 'dark' ? dark : light;
+  return light;
 }
 
 // ---------- type ----------

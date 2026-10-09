@@ -1,12 +1,15 @@
-// Talk: a blob that owns the screen. Press it and ask out loud; CurioX answers point by point,
-// each point landing as a yellow slip. "Staple into a deck" keeps the talk as cards.
-import { useEffect, useRef, useState } from 'react';
+// Talk: the one place CurioX speaks and listens. Opening it starts a guided conversation:
+// hello and today's updates → what do you want to learn about? → the explanation → your view →
+// the impact → what you make of it → open chat, until you wrap up. Every point lands as a yellow
+// slip; the whole talk can be stapled into a deck. Voice is on only while this screen is open.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { TalkPoint } from '@curiox/shared';
+import { VOICE_TONES, VOICE_TONE_LABEL, VOICE_TONE_SPEECH, type TalkFinishResponse, type TalkPoint, type TalkStage, type VoiceTone } from '@curiox/shared';
 import { api } from '../api/client';
+import { localDate } from '../hooks/useZine';
 import { Blob, type BlobPhase } from '../talk/Blob';
-import { Bar, Btn, Ground, IconBtn, useReduceMotion } from '../ui/kit';
+import { Bar, Btn, Chip, Ground, IconBtn, Note, useReduceMotion } from '../ui/kit';
 import { curves, fonts, paper, useGround } from '../ui/tokens';
 import { useVoiceScreen } from '../voice/VoiceProvider';
 
@@ -45,16 +48,23 @@ function Slip({ n, text, index }: { n: number; text: string; index: number }) {
   );
 }
 
+type Phase = 'idle' | 'opening' | 'talking' | 'finishing' | 'done';
+
 export interface TalkProps {
+  /** The tab is on screen. Voice switches on with it and off without it. */
+  active: boolean;
+  tone: VoiceTone;
+  onTone: (t: VoiceTone) => void;
   onClose: () => void;
   onStaple: (points: TalkPoint[]) => Promise<void>;
-  active: boolean;
+  onFinished: (result: TalkFinishResponse) => void;
 }
 
-export function TalkScreen({ onClose, onStaple, active }: TalkProps) {
+export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished }: TalkProps) {
   const g = useGround();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const [phase, setPhase] = useState<Phase>('idle');
   const [points, setPoints] = useState<TalkPoint[]>([]);
   const [caption, setCaption] = useState<{ who: 'you' | 'curiox'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,107 +73,220 @@ export function TalkScreen({ onClose, onStaple, active }: TalkProps) {
   const [typed, setTyped] = useState('');
   const [area, setArea] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const run = useRef(0);
+  const phaseRef = useRef<Phase>('idle');
+  const stage = useRef<TalkStage>('topic');
+  const topic = useRef<string | undefined>(undefined);
   const history = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const pointsRef = useRef<TalkPoint[]>([]);
   const slipsRef = useRef<ScrollView>(null);
+  const date = localDate();
 
-  const ask = async (text: string) => {
-    const mine = ++run.current;
-    setLabel(null);
-    setCaption({ who: 'you', text });
-    setBusy(true);
-    voice.setThinking(true);
-    let reply: TalkPoint[];
-    try {
-      const res = await api.talk(text, history.current);
-      reply = res.points;
-    } catch {
-      reply = [{ h: 'Lost the line', say: "Sorry, I couldn't reach my brain just then. Ask me again in a moment." }];
-    } finally {
-      voice.setThinking(false);
-      setBusy(false);
-    }
-    if (mine !== run.current) return;
-    history.current = [...history.current, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: reply.map((p) => p.say).join(' ') }].slice(-8);
-    for (let i = 0; i < reply.length; i++) {
-      if (mine !== run.current) return;
-      const p = reply[i]!;
-      setCaption({ who: 'curiox', text: p.say });
-      if (voice.enabled) await voice.say(p.say, { listenAfter: i === reply.length - 1 });
-      else await new Promise((r) => setTimeout(r, 700 + p.say.split(' ').length * 140));
-      if (mine !== run.current) return;
-      setPoints((list) => [...list, p]);
-      setTimeout(() => slipsRef.current?.scrollToEnd({ animated: true }), 60);
-    }
+  const setPhaseBoth = (p: Phase) => {
+    phaseRef.current = p;
+    setPhase(p);
   };
 
   const voice = useVoiceScreen({
     screen: 'talk',
+    active,
     intro: null,
     onCommand: (cmd) => {
-      if (cmd.type === 'staple') {
-        void staple();
-        return;
-      }
-      if (cmd.type === 'startOver') {
-        reset();
-        void voice.say('Fresh start. What do you want to talk about?');
-        return;
-      }
+      if (cmd.type === 'staple') return void staple();
+      if (cmd.type === 'startOver') return void start();
       if (cmd.type === 'stop') {
         run.current++;
         setLabel('Stopped. ');
         return;
       }
-      if (cmd.type === 'back' || cmd.type === 'goHome') {
-        onClose();
-        return;
-      }
+      if (cmd.type === 'back' || cmd.type === 'goHome' || cmd.type === 'close') return onClose();
       return false;
     },
-    onDictation: (text) => void ask(text),
+    onDictation: (text) => void heard(text),
   });
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
 
-  const reset = () => {
-    run.current++;
+  /** Say each point out loud and drop it as a slip; the last one hands over to listening. */
+  const deliver = async (mine: number, reply: TalkPoint[], listenAfter = true) => {
+    for (let i = 0; i < reply.length; i++) {
+      if (mine !== run.current) return false;
+      const p = reply[i]!;
+      setCaption({ who: 'curiox', text: p.say });
+      const v = voiceRef.current;
+      if (v.enabled) await v.say(p.say, { listenAfter: listenAfter && i === reply.length - 1 });
+      else await new Promise((r) => setTimeout(r, 700 + p.say.split(' ').length * 140));
+      if (mine !== run.current) return false;
+      pointsRef.current = [...pointsRef.current, p];
+      setPoints(pointsRef.current);
+      setTimeout(() => slipsRef.current?.scrollToEnd({ animated: true }), 60);
+    }
+    return true;
+  };
+
+  /** The greeting: hello, today's updates, and "what do you want to learn about?" */
+  const start = useCallback(async () => {
+    const mine = ++run.current;
     history.current = [];
+    pointsRef.current = [];
+    topic.current = undefined;
+    stage.current = 'topic';
     setPoints([]);
     setCaption(null);
     setLabel(null);
+    setPhaseBoth('opening');
+    setBusy(true);
+    voiceRef.current.setThinking(true);
+    let open: TalkPoint[];
+    try {
+      const res = await api.talkOpen({ date, hour: new Date().getHours() });
+      open = res.points;
+    } catch {
+      open = [
+        { h: 'Hello!', say: "Hello! I couldn't fetch today's updates just now, but I'm all ears." },
+        { h: 'Your pick', say: 'What do you want to learn about today?' },
+      ];
+    } finally {
+      voiceRef.current.setThinking(false);
+      setBusy(false);
+    }
+    if (mine !== run.current) return;
+    history.current = [{ role: 'assistant', content: open.map((p) => p.say).join(' ') }];
+    setPhaseBoth('talking');
+    await deliver(mine, open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  /** One turn of the conversation. */
+  const heard = async (text: string) => {
+    if (phaseRef.current === 'finishing') return;
+    if (phaseRef.current !== 'talking') return void start();
+    const mine = ++run.current;
+    setLabel(null);
+    setCaption({ who: 'you', text });
+    setBusy(true);
+    voiceRef.current.setThinking(true);
+    let reply: TalkPoint[];
+    let done = false;
+    try {
+      const res = await api.talk({ message: text, history: history.current, stage: stage.current, topic: topic.current, date });
+      reply = res.points;
+      done = res.done;
+      stage.current = res.stage;
+      if (res.topic) topic.current = res.topic;
+    } catch {
+      reply = [{ h: 'Lost the line', say: "Sorry, I couldn't reach my brain just then. Say that again in a moment?" }];
+    } finally {
+      voiceRef.current.setThinking(false);
+      setBusy(false);
+    }
+    if (mine !== run.current) return;
+    history.current = [...history.current, { role: 'user' as const, content: text }, { role: 'assistant' as const, content: reply.map((p) => p.say).join(' ') }].slice(-16);
+    const delivered = await deliver(mine, reply, !done);
+    if (delivered && done) void finish();
+  };
+
+  /** Wrap up: keep the key points, score the interest, update the reader and Home. */
+  const finish = async () => {
+    if (phaseRef.current !== 'talking') return;
+    const mine = ++run.current;
+    setPhaseBoth('finishing');
+    setCaption({ who: 'curiox', text: 'Let me jot down the key points…' });
+    setBusy(true);
+    try {
+      const res = await api.talkFinish({ topic: topic.current, history: history.current, points: pointsRef.current, date });
+      if (mine !== run.current) return;
+      onFinished(res);
+      const extra = res.addedInterest
+        ? ` I've added ${res.topic} to what you follow${res.deckId ? ', and put the latest on it on your home' : ''}.`
+        : res.deckId
+          ? ' There is a fresh story on it on your home.'
+          : '';
+      const closing: TalkPoint[] = [...res.keyPoints.slice(0, 3).map((k, i) => ({ h: `Takeaway ${i + 1}`, say: k })), { h: 'Bye for now', say: `${res.reply}${extra}` }];
+      setBusy(false);
+      await deliver(mine, closing, false);
+    } catch {
+      setBusy(false);
+      await deliver(mine, [{ h: 'Bye for now', say: "That was a good one. I'll remember it. See you next time!" }], false);
+    }
+    if (mine !== run.current) return;
+    setPhaseBoth('done');
+    setLabel('That was fun. ');
+    voiceRef.current.disable();
   };
 
   const staple = async () => {
-    if (!points.length || stapling) return;
+    if (!pointsRef.current.length || stapling) return;
     setStapling(true);
     try {
-      await onStaple(points);
+      await onStaple(pointsRef.current);
     } finally {
       setStapling(false);
     }
   };
 
-  // Leaving the tab stops whatever was being said.
+  // Voice lives and dies with this screen: on when the Talk tab opens, off when it goes.
   useEffect(() => {
-    if (!active) run.current++;
+    const v = voiceRef.current;
+    if (active) {
+      v.setSpeechStyle(VOICE_TONE_SPEECH[tone]);
+      if (phaseRef.current === 'idle' || phaseRef.current === 'done') {
+        v.enable({ quiet: true });
+        void start();
+      } else {
+        v.enable();
+      }
+    } else {
+      run.current++;
+      v.disable();
+      setBusy(false);
+      if (phaseRef.current === 'opening') setPhaseBoth('idle');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  useEffect(() => {
+    voiceRef.current.setSpeechStyle(VOICE_TONE_SPEECH[tone]);
+  }, [tone]);
+
   const s = voice.status;
-  const phase: BlobPhase = busy || s === 'thinking' || s === 'transcribing' ? 'thinking' : s === 'listening' ? 'listening' : s === 'speaking' ? 'speaking' : 'idle';
+  const blobPhase: BlobPhase = busy || s === 'thinking' || s === 'transcribing' ? 'thinking' : s === 'listening' ? 'listening' : s === 'speaking' ? 'speaking' : 'idle';
   const say =
-    phase === 'listening' ? 'Listening' : phase === 'thinking' ? 'Thinking' : phase === 'speaking' ? 'Press to interrupt' : `${label ?? ''}${points.length ? 'Press to ask the next thing' : 'Press and ask out loud'}`;
+    phase === 'done'
+      ? `${label ?? ''}Press to start a new talk`
+      : blobPhase === 'listening'
+        ? 'Listening'
+        : blobPhase === 'thinking'
+          ? 'Thinking'
+          : blobPhase === 'speaking'
+            ? 'Press to interrupt'
+            : `${label ?? ''}${points.length ? 'Press and say more' : 'Press and ask out loud'}`;
   const hasSlips = points.length > 0;
   const R = Math.min(area.w * 0.6, area.h * 0.46, 330);
 
   const pressBlob = () => {
-    if (phase === 'speaking' || phase === 'thinking') run.current++;
+    if (phase === 'idle' || phase === 'done') return void start();
+    if (blobPhase === 'speaking' || blobPhase === 'thinking') run.current++;
     voice.micPress();
+  };
+
+  const send = () => {
+    const t = typed.trim();
+    if (!t) return;
+    setTyped('');
+    void heard(t);
   };
 
   return (
     <Ground>
       <View style={{ flex: 1, paddingTop: insets.top, alignItems: 'center' }}>
-        <Blob width={width} height={height} cx={area.x + area.w / 2} cy={area.y + area.h / 2} R={R} phase={phase} />
+        <Blob width={width} height={height} cx={area.x + area.w / 2} cy={area.y + area.h / 2} R={R} phase={blobPhase} />
         <View style={{ alignSelf: 'stretch' }}>
-          <Bar title="Talk" onBack={onClose} backIcon="x" backLabel="Close talk mode" right={<Btn label="Start over" variant="text" onPress={reset} />} />
+          <Bar title="Talk" onBack={onClose} backIcon="x" backLabel="Close talk mode" right={phase === 'talking' ? <Btn label="Wrap up" variant="text" onPress={() => void finish()} /> : <Btn label="Start over" variant="text" onPress={() => void start()} />} />
+          <View accessibilityRole="radiogroup" accessibilityLabel="Voice tone" style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 4 }}>
+            {VOICE_TONES.map((t, i) => (
+              <Chip key={t} label={VOICE_TONE_LABEL[t]} index={i} selected={tone === t} onPress={() => onTone(t)} style={{ paddingVertical: 8, paddingHorizontal: 12 }} textStyle={{ fontSize: 14.5 }} />
+            ))}
+          </View>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -173,7 +296,7 @@ export function TalkScreen({ onClose, onStaple, active }: TalkProps) {
             const { x, y, width: w, height: h } = e.nativeEvent.layout;
             setArea({ x, y, w, h });
           }}
-          style={{ alignSelf: 'stretch', ...(hasSlips ? { height: Math.min(280, height * 0.34) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
+          style={{ alignSelf: 'stretch', ...(hasSlips ? { height: Math.min(260, height * 0.3) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
         >
           <Text
             style={{
@@ -207,38 +330,22 @@ export function TalkScreen({ onClose, onStaple, active }: TalkProps) {
           {caption ? (caption.who === 'you' ? `“${caption.text}”` : caption.text) : ''}
         </Text>
 
-        {hasSlips && (
+        {hasSlips ? (
           <ScrollView ref={slipsRef} horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, alignItems: 'flex-start', paddingTop: 14, paddingHorizontal: 20, paddingBottom: 10 }}>
             {points.map((p, i) => (
               <Slip key={`${i}-${p.h}`} n={i + 1} text={p.say} index={i} />
             ))}
           </ScrollView>
+        ) : (
+          phase === 'idle' && <Note style={{ marginHorizontal: 24 }}>press the blob and I'll say hello</Note>
         )}
 
         <View style={{ alignSelf: 'stretch', gap: 8, alignItems: 'center', paddingTop: 2, paddingHorizontal: 20, paddingBottom: 8 }}>
-          {hasSlips && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
+          {hasSlips && phase !== 'talking' && phase !== 'opening' && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
           {!voice.canListen && (
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, paddingRight: 5, paddingLeft: 16, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh }}>
-              <TextInput
-                value={typed}
-                onChangeText={setTyped}
-                placeholder="Type to talk"
-                placeholderTextColor={paper.ink2}
-                onSubmitEditing={() => {
-                  const t = typed.trim();
-                  if (!t) return;
-                  setTyped('');
-                  void ask(t);
-                }}
-                returnKeyType="send"
-                style={{ flex: 1, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }}
-              />
-              <IconBtn name="up" label="Send" color={paper.ink} onPress={() => {
-                const t = typed.trim();
-                if (!t) return;
-                setTyped('');
-                void ask(t);
-              }} />
+              <TextInput value={typed} onChangeText={setTyped} placeholder="Type to talk" placeholderTextColor={paper.ink2} onSubmitEditing={send} returnKeyType="send" style={{ flex: 1, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }} />
+              <IconBtn name="up" label="Send" color={paper.ink} onPress={send} />
             </View>
           )}
         </View>
@@ -246,4 +353,3 @@ export function TalkScreen({ onClose, onStaple, active }: TalkProps) {
     </Ground>
   );
 }
-

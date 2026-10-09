@@ -8,7 +8,7 @@ export const INTEREST_OPTIONS = [
   'History', 'Health', 'Climate', 'Startups', 'Music',
 ] as const;
 
-export const TONE_OPTIONS = ['Friendly', 'Witty', 'Calm', 'Like a coach', 'Blunt'];
+export const TONE_OPTIONS = ['Friendly', 'Casual', 'Playful', 'Witty', 'Calm', 'Like a coach'];
 const BASE_GOALS = ['Keep up with the news', 'Get better at my job', 'Change careers', 'Pass an exam', 'Pure curiosity'];
 const BASE_STYLE = ['Analogies', 'Step by step', 'Real examples', 'Straight to the point', 'Pictures'];
 const BASE_CURIOUS = ['Why do chatbots make things up?', 'What is an AI agent?', 'How do AI models learn?', 'Will AI take my job?'];

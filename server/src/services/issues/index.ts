@@ -455,6 +455,42 @@ export async function deckFromTalk(user: UserDoc, title: string | undefined, poi
   return toDeck(await saveDeck(user._id, no, 'talk', 'from your talk', draft, 'demo', null));
 }
 
+/** Today's issue as the app sees it, or null if none has been made yet. */
+export async function todayIfMade(user: UserDoc, date: string): Promise<Issue | null> {
+  return loadIssue(user._id, date);
+}
+
+/**
+ * After a talk the reader cared about: find news on the topic and, if there is any, add a short
+ * story deck to today's issue so it shows on Home under that interest. Returns the deck id or null.
+ */
+export async function addTopicStory(user: UserDoc, topic: string, date: string, services: IssueServices): Promise<string | null> {
+  if (services.llm.demoMode) return null;
+  const issue = await IssueModel.findOne({ userId: user._id, date });
+  if (!issue) return null;
+  const { sources, origin } = await services.search.search(`latest ${topic} news`, { topic: 'news', days: 3, max: 3 }).catch(() => ({ sources: [] as Source[], origin: 'none' as const }));
+  if (origin === 'demo' || !sources.length) return null;
+  const profile = userProfile(user);
+  const item: StoryItem = { item: 1, topic, sources: sources.map((s, k) => ({ ...s, id: k + 1 })) };
+  const { data, provider } = await services.llm.completeJson(
+    {
+      system: STORY_DECKS_PROMPT,
+      messages: [{ role: 'user', content: [learnerBlock(profile), `ITEM 1: the reader's new interest "${topic}"\n${sourcesBlock(item.sources)}`].join('\n\n') }],
+      tier: 'main',
+      temperature: 0.7,
+      maxOutputTokens: 2500,
+      timeoutMs: 25_000,
+    },
+    looseStories.nullable(),
+    () => null,
+  );
+  const story = data ? assembleStories(data, [item])[0] : undefined;
+  if (!story) return null;
+  const deck = await saveDeck(user._id, issue.no, 'story', 'from your talk', story, provider, date);
+  await IssueModel.updateOne({ _id: issue._id }, { $push: { storyIds: deck._id }, $pull: { quiet: topic } });
+  return deck._id.toString();
+}
+
 export async function getDeck(user: UserDoc, id: string): Promise<Deck | null> {
   if (!/^[a-f0-9]{24}$/i.test(id)) return null;
   const d = await DeckModel.findOne({ _id: id, userId: user._id });

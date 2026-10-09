@@ -18,7 +18,7 @@ import { Icon, type IconName } from './Icon';
 import { Arrow, Ring, Tick } from './Marks';
 import { curves, cutCorners, paper, stripCorners, type, useGround } from './tokens';
 
-const GROUND = { light: require('../../assets/paper/ground-light.jpg'), dark: require('../../assets/paper/ground-dark.jpg') };
+const GROUND = require('../../assets/paper/ground-light.jpg');
 const YELLOW = require('../../assets/paper/yellow.jpg');
 
 export function useReduceMotion(): boolean {
@@ -51,7 +51,7 @@ export function Ground({ children, style }: { children?: ReactNode; style?: Styl
   const g = useGround();
   return (
     // Clipped: an unclipped texture would widen the page on web and make phones zoom out.
-    <ImageBackground source={GROUND[g.scheme]} resizeMode="repeat" style={[{ flex: 1, backgroundColor: g.ground, overflow: 'hidden' }, style]}>
+    <ImageBackground source={GROUND} resizeMode="repeat" style={[{ flex: 1, backgroundColor: g.ground, overflow: 'hidden' }, style]}>
       {children}
     </ImageBackground>
   );

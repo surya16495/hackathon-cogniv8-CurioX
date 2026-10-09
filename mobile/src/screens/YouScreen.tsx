@@ -17,8 +17,6 @@ export interface YouProps {
   onBack: () => void;
   confirming: boolean;
   setConfirming: (v: boolean) => void;
-  voiceOn: boolean;
-  onVoice: () => void;
 }
 
 export function YouScreen(p: YouProps) {
@@ -66,13 +64,6 @@ export function YouScreen(p: YouProps) {
             </View>
           </View>
         )}
-        <T v="secH" style={{ marginTop: 36, marginBottom: 12 }}>
-          Voice
-        </T>
-        <T v="hint" muted style={{ marginBottom: 12 }}>
-          CurioX reads things out and listens for what you say, on every screen. Say “help” to hear what you can say.
-        </T>
-        <Btn label={p.voiceOn ? 'Turn voice mode off' : 'Turn voice mode on'} icon={p.voiceOn ? 'mute' : 'speaker'} variant={p.voiceOn ? 'paper' : 'ink'} onPress={p.onVoice} />
         <T v="typed" muted style={{ marginTop: 36 }}>
           Sticker artwork: Twemoji, CC BY 4.0.
         </T>

@@ -21,13 +21,12 @@ See [docs/business-case.md](docs/business-case.md).
 
 - **A daily issue, made for you**: every day CurioX searches the news for what you follow and writes a nine-card lead deck (hook, what happened, why it matters to you, myth or fact, explain it three ways, this vs that, guess the number, watch it, finale) plus a short deck per interest. Swipe through, then take the quiz, teach it back, read the sources, or listen.
 - **Reader card onboarding**: six chip questions; questions 2 to 6 follow the interests you pick in question 1.
-- **Talk mode**: press the blob and ask out loud; the answer lands point by point as yellow slips you can staple into a deck.
+- **Talk mode**, the only place CurioX speaks and listens: open the Talk tab and it says hello, tells you what's new today and asks what you want to learn about, explains it, asks your view, explains the impact, asks what you make of it, then chats until you say "that's all". Pick the voice: Friendly, Casual or Playful. When you wrap up it keeps the key points, scores how keen you were, and a topic you cared about joins your interests, with a fresh story on Home when there is news on it.
 - **Pinboard**: pin sources and videos from any deck for a deeper read.
 - **Personalized, streamed answers** that adapt to the profile and the conversation, and can be turned into cards.
 - **Research with sources**: current-events questions trigger a live web search, with numbered, tappable citations.
 - **Learn actions**: Simplify, Go deeper, Real-world example, Challenge me, Compare perspectives.
 - **Quiz**: multiple-choice questions on whatever you just discussed.
-- **Voice mode on every screen**: CurioX reads questions, answers, quizzes and results aloud, then listens. Answer onboarding, ask questions, say "simplify" or "quiz me", answer quizzes ("B", "the first one"), edit your profile ("add interest chess"), and navigate, all by voice. Say "help" for the commands on any screen.
 - **Always answers**: if Gemini is rate-limited it switches to Groq, and if both are down it gives a clearly labelled demo answer.
 
 ## Running it

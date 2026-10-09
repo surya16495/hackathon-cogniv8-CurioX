@@ -6,10 +6,9 @@ import { AppState, Platform } from 'react-native';
 import { HELP_TEXT, parseCommand, type Command, type ScreenId } from '@curiox/shared';
 import { api } from '../api/client';
 import { useSession } from '../hooks/useSession';
-import { KEYS, loadStorage, storage } from '../lib/storage';
 import { useRecorderListener } from './recorder';
 import { browserRecognitionSupported, listenWithBrowser, VoiceInputError, type ListenHandle } from './stt-browser';
-import { speak, stopSpeaking } from './tts';
+import { speak, stopSpeaking, type SpeechStyle } from './tts';
 
 export type VoiceStatus = 'off' | 'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking';
 
@@ -37,7 +36,10 @@ interface VoiceContextValue {
   helpOpen: boolean;
   screen: ScreenId | null;
   setHelpOpen: (open: boolean) => void;
-  enable: () => void;
+  /** quiet: switch on without saying anything (the caller is about to speak). */
+  enable: (opts?: { quiet?: boolean }) => void;
+  /** How the voice speaks (rate, pitch), set per tone. */
+  setSpeechStyle: (style: SpeechStyle) => void;
   disable: () => void;
   toggle: () => void;
   micPress: () => void;
@@ -97,6 +99,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const sayGen = useRef(0);
   const listenFn = useRef<() => void>(() => undefined);
   const disableRef = useRef<() => void>(() => undefined);
+  const styleRef = useRef<SpeechStyle>({});
 
   const set = (s: VoiceStatus) => {
     statusRef.current = s;
@@ -112,7 +115,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       listenRef.current = null;
       lastSpoken.current = text;
       set('speaking');
-      await speak(text, lang);
+      await speak(text, lang, styleRef.current);
       // A newer say(), a mic tap or a stop replaced this one: it owns what happens next.
       if (mine !== sayGen.current || !enabledRef.current) return;
       set('idle');
@@ -248,7 +251,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     setNeedsTap(false);
     setInterim('');
     set('off');
-    storage.set(KEYS.voice, 'off');
   }, [stopAll]);
   disableRef.current = disable;
 
@@ -264,17 +266,25 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     }
   }, [canListen, say]);
 
-  const enable = useCallback(() => {
-    setEnabled(true);
-    enabledRef.current = true;
-    setNeedsTap(false);
-    needsTapRef.current = false;
-    set('idle');
-    storage.set(KEYS.voice, 'on');
-    resume();
-  }, [resume]);
+  const enable = useCallback(
+    (opts: { quiet?: boolean } = {}) => {
+      setEnabled(true);
+      enabledRef.current = true;
+      setNeedsTap(false);
+      needsTapRef.current = false;
+      set('idle');
+      silentTries.current = 0;
+      if (!opts.quiet) resume();
+    },
+    [resume],
+  );
+
+  const setSpeechStyle = useCallback((style: SpeechStyle) => {
+    styleRef.current = style;
+  }, []);
 
   const toggle = useCallback(() => (enabledRef.current && !needsTapRef.current ? disable() : enable()), [disable, enable]);
+  // Voice is never remembered between launches: it switches on only in Talk, while Talk is open.
 
   const micPress = useCallback(() => {
     if (!enabledRef.current || needsTapRef.current) return enable();
@@ -290,39 +300,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     set('idle');
     listen();
   }, [enable, listen]);
-
-  // Restore voice mode from the last session once storage has loaded (it loads asynchronously).
-  useEffect(() => {
-    let cancelled = false;
-    void loadStorage().then(() => {
-      if (cancelled || enabledRef.current || storage.get(KEYS.voice) !== 'on') return;
-      enabledRef.current = true;
-      setEnabled(true);
-      if (isWeb) {
-        needsTapRef.current = true;
-        setNeedsTap(true);
-      }
-      set('idle');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Web only: resume a remembered voice mode on the first tap or key press anywhere.
-  useEffect(() => {
-    if (!needsTap || !isWeb || typeof window === 'undefined') return;
-    const onGesture = (e: Event) => {
-      if ((e.target as HTMLElement | null)?.closest?.('[data-voice-control]')) return;
-      enable();
-    };
-    window.addEventListener('pointerdown', onGesture, { once: true });
-    window.addEventListener('keydown', onGesture, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', onGesture);
-      window.removeEventListener('keydown', onGesture);
-    };
-  }, [needsTap, enable]);
 
   // Stop talking and listening when the app goes to the background.
   useEffect(() => {
@@ -385,6 +362,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       screen,
       setHelpOpen,
       enable,
+      setSpeechStyle,
       disable,
       toggle,
       micPress,
@@ -393,7 +371,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       register,
       announce,
     }),
-    [enabled, needsTap, status, interim, error, canListen, helpOpen, screen, enable, disable, toggle, micPress, say, setThinking, register, announce],
+    [enabled, needsTap, status, interim, error, canListen, helpOpen, screen, enable, setSpeechStyle, disable, toggle, micPress, say, setThinking, register, announce],
   );
 
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;

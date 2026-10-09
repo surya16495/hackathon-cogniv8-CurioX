@@ -8,7 +8,10 @@ import type {
   Deck,
   ReaderCard,
   TailorResponse,
+  TalkFinishResponse,
+  TalkOpenResponse,
   TalkResponse,
+  TalkStage,
   TeachResponse,
   TodayResponse,
   HealthResponse,
@@ -125,8 +128,11 @@ export const api = {
   discardToday: (date: string) => request<void>('DELETE', `/api/issues/today?date=${date}`),
   deck: (id: string) => request<Deck>('GET', `/api/decks/${encodeURIComponent(id)}`),
   createDeck: (body: CreateDeckRequest) => request<Deck>('POST', '/api/decks', body),
-  talk: (message: string, history: { role: 'user' | 'assistant'; content: string }[], signal?: AbortSignal) =>
-    request<TalkResponse>('POST', '/api/talk', { message, history }, signal),
+  talkOpen: (body: { date: string; hour: number }) => request<TalkOpenResponse>('POST', '/api/talk/open', body),
+  talk: (body: { message: string; history: { role: 'user' | 'assistant'; content: string }[]; stage: TalkStage; topic?: string; date: string }, signal?: AbortSignal) =>
+    request<TalkResponse>('POST', '/api/talk', body, signal),
+  talkFinish: (body: { topic?: string; history: { role: 'user' | 'assistant'; content: string }[]; points: { h: string; say: string }[]; date: string }) =>
+    request<TalkFinishResponse>('POST', '/api/talk/finish', body),
   teach: (body: { q: string; said: string; sample?: string }) => request<TeachResponse>('POST', '/api/talk/teach', body),
 
   /** Server speech-to-text. `audio` is a recorded file (native) or Blob (web). */
