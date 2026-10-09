@@ -218,11 +218,18 @@ export interface ApiError {
   error: { code: string; message: string; details?: unknown };
 }
 
+// ---------- Voice ----------
+/** POST /api/voice/transcribe (fallback speech-to-text for browsers without built-in recognition). */
+export interface TranscribeResponse {
+  text: string;
+}
+
 export interface HealthResponse {
   status: 'ok';
   uptimeSeconds: number;
   db: 'connected' | 'connecting' | 'disconnected';
   demoMode: boolean;
-  providers: { gemini: boolean; groq: boolean; tavily: boolean };
+  /** stt: the server can transcribe audio for browsers without built-in speech recognition. */
+  providers: { gemini: boolean; groq: boolean; tavily: boolean; stt: boolean };
   version: string;
 }

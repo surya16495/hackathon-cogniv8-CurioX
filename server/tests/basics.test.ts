@@ -10,7 +10,7 @@ describe('health, errors and CORS', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ status: 'ok', db: 'connected', demoMode: true });
-    expect(res.body.providers).toEqual({ gemini: false, groq: false, tavily: false });
+    expect(res.body.providers).toEqual({ gemini: false, groq: false, tavily: false, stt: false });
   });
 
   it('unknown routes return a JSON 404', async () => {

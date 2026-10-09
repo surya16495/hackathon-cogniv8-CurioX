@@ -2,21 +2,25 @@
   "name": "hackathon-cogniv8-curiox",
   "version": "0.1.0",
   "private": true,
-  "description": "CurioX: a personalized AI learning companion. Express + MongoDB API, React PWA client.",
+  "description": "CurioX: a personalized AI learning companion. Express + MongoDB API, Expo (React Native) mobile app.",
   "workspaces": [
     "packages/*",
     "server",
-    "web"
+    "mobile"
   ],
   "engines": {
     "node": ">=20.19"
   },
   "scripts": {
     "dev:server": "npm run dev -w server",
-    "dev:web": "npm run dev -w web",
-    "build": "npm run build -w server && npm run build -w web",
-    "test": "npm test -w server",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w server",
+    "dev:mobile": "npm run start -w mobile",
+    "build": "npm run build -w server",
+    "test": "npm test -w packages/shared && npm test -w server",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w server && npm run typecheck -w mobile",
     "smoke": "npm run smoke -w server"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   }
 }

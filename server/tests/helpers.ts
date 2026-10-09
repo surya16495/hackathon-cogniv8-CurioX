@@ -8,6 +8,7 @@ import { createSearchService } from '../src/services/search';
 import type { WebSearcher } from '../src/services/search/tavily';
 import type { RawResult } from '../src/services/search/cache';
 import type { Services } from '../src/services';
+import type { SttService } from '../src/services/voice/stt';
 import { parseSse } from '../src/utils/sse';
 
 export interface FakeProviderSpec {
@@ -76,6 +77,7 @@ export interface TestAppOptions {
   searcher?: WebSearcher;
   timeoutMs?: number;
   chatOrder?: string[];
+  stt?: SttService;
 }
 
 export function makeApp(opts: TestAppOptions = {}): { app: Express; services: Services } {
@@ -92,6 +94,7 @@ export function makeApp(opts: TestAppOptions = {}): { app: Express; services: Se
     }),
     search: createSearchService({ searcher, demoMode, ttlHours: 6 }),
     tavilyConfigured: searcher.available(),
+    stt: opts.stt ?? { available: () => false, transcribe: async () => '' },
   };
   const app = createApp({ CORS_ORIGIN: ['http://localhost:5173'], NODE_ENV: 'test' }, services);
   return { app, services };

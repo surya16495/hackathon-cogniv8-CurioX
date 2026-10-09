@@ -1,14 +1,15 @@
 # CurioX API contract
 
 The TypeScript source of truth is [`packages/shared/src/types.ts`](../packages/shared/src/types.ts).
-Web and mobile import types from `@curiox/shared`; never from `server/`.
+The mobile app (primary client) imports types from `@curiox/shared`, never from `server/`. The paused web app in `archive/web/` uses the same contract.
 
 **Status: draft. Freeze at the end of phase 4 (Fri 11:00 PM).** After the freeze, change shapes only with the frontend lane's agreement.
 
 ## Conventions
 
 - Base URL: `VITE_API_URL` (local `http://localhost:4000`).
-- **Identity:** every route except `/api/health` needs an `X-Device-Id` header: 8–128 characters from `A-Z a-z 0-9 - _`. The client generates it once (`crypto.randomUUID()`) and keeps it in `localStorage`. The user is created on first use.
+- **Identity:** every route except `/api/health` needs an `X-Device-Id` header: 8–128 characters from `A-Z a-z 0-9 - _`. The app generates it once (a UUID) and keeps it in AsyncStorage. The user is created on first use.
+- **Native apps send no `Origin` header**, so CORS never blocks them. `CORS_ORIGIN` only matters for browser clients.
 - **Errors** are always JSON: `{ "error": { "code": string, "message": string, "details"?: any } }`.
 
 | Status | `code` | When |
@@ -28,7 +29,7 @@ Web and mobile import types from `@curiox/shared`; never from `server/`.
 No device ID. Call on app load and show a "Waking up CurioX" state until it answers (Render can take about a minute to wake).
 ```json
 { "status": "ok", "uptimeSeconds": 12, "db": "connected", "demoMode": false,
-  "providers": { "gemini": true, "groq": true, "tavily": true }, "version": "0.1.0" }
+  "providers": { "gemini": true, "groq": true, "tavily": true, "stt": true }, "version": "0.1.0" }
 ```
 
 ### `POST /api/session`
@@ -76,7 +77,7 @@ Body: `{ "message"?: string (≤4000), "conversationId"?: string, "action"?: Lea
   - An action **with** a message applies to that message.
 - Validation and 404 errors come back as normal JSON **before** the stream starts. Check `res.ok` before reading the stream.
 
-**Streaming (default):** `Content-Type: text/event-stream`. Read it with `fetch` plus a stream reader, not `EventSource` (which cannot POST or send headers). Lines starting with `:` are heartbeats; ignore them.
+**Streaming (default):** `Content-Type: text/event-stream`. Read it with `fetch` plus a stream reader, not `EventSource` (which cannot POST or send headers). In React Native use `fetch` from `expo/fetch`, which supports streamed bodies. Lines starting with `:` are heartbeats; ignore them.
 
 | Event | Data | Client action |
 | --- | --- | --- |
@@ -105,3 +106,12 @@ Body: `{ "topic"?: string, "conversationId"?: string, "count"?: 3-5 (default 4) 
   "questions": [{ "question": "…?", "options": ["a","b","c","d"], "answerIndex": 2, "explanation": "…" }] }
 ```
 Every question has exactly 4 distinct options. If `provider` is `"demo"`, label it as a demo quiz.
+
+### `POST /api/voice/transcribe`
+Speech-to-text for voice mode (Groq Whisper). The body is the **raw audio file**, not JSON or multipart.
+
+- Headers: `Content-Type` is one of `audio/m4a`, `audio/mp4`, `audio/webm`, `audio/ogg`, `audio/mpeg`, `audio/wav`. Optional `X-Voice-Lang: en-IN` (the first two letters are used as a language hint).
+- At most 5 MB; 30 requests a minute per device.
+- `200 { "text": "go deeper on black holes" }`. The text can be empty if nothing was said.
+- `503 VOICE_UNAVAILABLE` when the server has no `GROQ_API_KEY` (check `providers.stt` on `/api/health`; the app hides the mic in that case). `502 TRANSCRIBE_FAILED` when Whisper fails, `400` for empty or unsupported audio.
+- Works with `DEMO_MODE=true` too: transcribing the user's own speech is the one Groq call demo mode still makes.

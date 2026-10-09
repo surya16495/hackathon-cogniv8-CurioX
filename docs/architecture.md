@@ -27,3 +27,19 @@ The full plan, with its decisions, free-tier limits and timeline, is in [PROJECT
 `npm test` uses an in-memory MongoDB and fake AI providers, so it costs no quota. It covers every route, the fallback chain (429, mid-stream failure, stall, empty answer, missing keys), search cleaning and caching, client disconnects, cross-device access, onboarding races and validation edges.
 
 `npm run smoke` runs the judge journey against a running server (`API_URL=…` for the hosted one).
+
+## Clients
+
+- **Mobile (primary)**: `mobile/`, Expo SDK 57 with Expo Router. Routes in `src/app/` are thin guards; screens live in `src/screens/`, UI in `src/components/`, API access only in `src/api/client.ts`. Runs in Expo Go: no custom native modules.
+- **Web (paused)**: `archive/web/`, kept out of the workspaces. See its README.
+
+## Voice mode (mobile)
+
+`mobile/src/voice/VoiceProvider.tsx` runs one loop for the whole app: **speak → listen → understand → act**.
+
+- **Speaking**: `expo-speech`, split into sentence-sized chunks (`chunkForSpeech`). Answers are cleaned of Markdown, citations and links first (`toSpeech`).
+- **Listening on phones**: `expo-audio` records with level metering. It calibrates on room noise, notices speech, and stops after 1.5 s of silence. The clip goes to `POST /api/voice/transcribe` (Groq Whisper). Recording mode is switched off after each clip so replies play from the loudspeaker on iPhone.
+- **Listening on the web build**: the browser's SpeechRecognition.
+- **Understanding**: `parseCommand` in `packages/shared/src/voice/commands.ts` (unit-tested). A phrase is a command only when it is the *whole* utterance ("simplify", "quiz me", "B"). Anything else is dictation: an onboarding answer or a question.
+- **Acting**: each screen declares itself with `useVoiceScreen({ screen, intro, onCommand, onDictation, quizOptions, confirming })`. Screens form a stack that mirrors navigation, so closing Profile hands voice back to Chat.
+- Guard rails: it never listens while speaking (no echo); two silent turns pause listening until the mic is tapped; destructive commands ask for a spoken yes/no; it stops when the app goes to the background; the voice-mode choice is remembered.

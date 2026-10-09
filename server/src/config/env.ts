@@ -23,6 +23,7 @@ const envSchema = z.object({
   GEMINI_THINKING_LITE: z.enum(['', 'minimal', 'low', 'medium', 'high']).default('minimal'),
   GROQ_API_KEY: optionalKey,
   GROQ_MODEL: z.string().trim().min(1).default('openai/gpt-oss-120b'),
+  GROQ_STT_MODEL: z.string().trim().min(1).default('whisper-large-v3-turbo'),
   TAVILY_API_KEY: optionalKey,
   CORS_ORIGIN: z
     .string()

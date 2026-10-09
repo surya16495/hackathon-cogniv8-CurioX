@@ -4,12 +4,14 @@ import { createGeminiProvider } from './llm/gemini';
 import { createGroqProvider } from './llm/groq';
 import { createSearchService, type SearchService } from './search';
 import { createTavilySearcher } from './search/tavily';
+import { createGroqStt, type SttService } from './voice/stt';
 
 export interface Services {
   llm: LlmService;
   search: SearchService;
   /** Whether a Tavily key is set (shown on /api/health). */
   tavilyConfigured: boolean;
+  stt: SttService;
 }
 
 export function buildServices(env: Env): Services {
@@ -31,5 +33,6 @@ export function buildServices(env: Env): Services {
   });
   const searcher = createTavilySearcher(env.TAVILY_API_KEY);
   const search = createSearchService({ searcher, demoMode: env.DEMO_MODE, ttlHours: env.SEARCH_CACHE_TTL_HOURS });
-  return { llm, search, tavilyConfigured: searcher.available() };
+  const stt = createGroqStt({ apiKey: env.GROQ_API_KEY, model: env.GROQ_STT_MODEL });
+  return { llm, search, tavilyConfigured: searcher.available(), stt };
 }

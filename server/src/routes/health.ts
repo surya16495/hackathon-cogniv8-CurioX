@@ -12,7 +12,7 @@ export function healthRouter(services: Services): Router {
       uptimeSeconds: Math.round(process.uptime()),
       db: dbState(),
       demoMode: services.llm.demoMode,
-      providers: { ...services.llm.configured(), tavily: services.tavilyConfigured },
+      providers: { ...services.llm.configured(), tavily: services.tavilyConfigured, stt: services.stt.available() },
       version: process.env.npm_package_version ?? '0.1.0',
     };
     res.set('Cache-Control', 'no-store').json(body);

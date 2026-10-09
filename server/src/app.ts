@@ -15,6 +15,7 @@ import { topicsRouter } from './routes/topics';
 import { chatRouter } from './routes/chat';
 import { conversationsRouter } from './routes/conversations';
 import { learnRouter } from './routes/learn';
+import { voiceRouter } from './routes/voice';
 
 export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: Services): Express {
   const app = express();
@@ -32,7 +33,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
         }
         cb(new Error(`CORS: origin ${origin} is not allowed`));
       },
-      allowedHeaders: ['Content-Type', DEVICE_ID_HEADER],
+      allowedHeaders: ['Content-Type', DEVICE_ID_HEADER, 'X-Voice-Lang'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       maxAge: 86400,
     }),
@@ -53,6 +54,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
   app.use('/api/chat', deviceSession, chatRouter(services));
   app.use('/api/conversations', deviceSession, conversationsRouter());
   app.use('/api/learn', deviceSession, learnRouter(services));
+  app.use('/api/voice', deviceSession, voiceRouter(services));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
