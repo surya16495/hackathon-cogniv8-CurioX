@@ -2,6 +2,7 @@
 // Request bodies are zod schemas so the server validates exactly what clients send.
 import { z } from 'zod';
 import { LEARN_ACTION_IDS, type LearnActionId } from './actions';
+import { readerCardSchema } from './zine';
 
 // ---------- Limits ----------
 export const LIMITS = {
@@ -35,6 +36,8 @@ export const profileSchema = z.object({
   explanationStyle: z.string().trim().max(300).default(''),
   tone: z.string().trim().max(200).default(''),
   curiosities: z.array(shortText).max(20).default([]),
+  /** The six answers exactly as picked on the reader card. The fields above are derived from it. */
+  reader: readerCardSchema.optional(),
 });
 export type Profile = z.infer<typeof profileSchema>;
 

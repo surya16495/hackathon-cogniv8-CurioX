@@ -3,7 +3,7 @@ import { withTimeout, truncate } from '../../utils/async';
 import { describeError } from '../../utils/errors';
 import { demoSources } from '../llm/demo';
 import { readCache, writeCache, type RawResult } from './cache';
-import type { WebSearcher } from './tavily';
+import type { SearchOptions, WebSearcher } from './tavily';
 
 export interface SearchOutcome {
   sources: Source[];
@@ -12,7 +12,7 @@ export interface SearchOutcome {
 }
 
 export interface SearchService {
-  search(query: string): Promise<SearchOutcome>;
+  search(query: string, opts?: SearchOptions & { max?: number }): Promise<SearchOutcome>;
   available(): boolean;
 }
 
@@ -57,25 +57,28 @@ export function createSearchService(opts: SearchServiceOptions): SearchService {
   return {
     available: () => opts.demoMode || opts.searcher.available(),
 
-    async search(query) {
+    async search(query, { max: maxOverride, ...searchOpts } = {}) {
       const q = query.trim().slice(0, 400);
       if (!q) return { sources: [], origin: 'none' };
+      const limit = maxOverride ?? max;
+      // Different search options must not share a cache entry with a plain search.
+      const cacheKey = searchOpts.topic || searchOpts.includeDomains?.length ? `${JSON.stringify(searchOpts)} ${q}` : q;
       if (opts.demoMode) return { sources: demoSources(q), origin: 'demo' };
       if (!opts.searcher.available()) return { sources: [], origin: 'none' };
 
       try {
-        const cached = await readCache(q);
-        if (cached) return { sources: toSources(cached, max), origin: 'cache' };
+        const cached = await readCache(cacheKey);
+        if (cached) return { sources: toSources(cached, limit), origin: 'cache' };
       } catch (err) {
         console.warn(`[search] cache read failed (${describeError(err)})`);
       }
 
       try {
-        const raw = await withTimeout(opts.searcher.search(q, max), timeoutMs, 'tavily search');
-        const sources = toSources(raw, max);
+        const raw = await withTimeout(opts.searcher.search(q, limit, searchOpts), timeoutMs, 'tavily search');
+        const sources = toSources(raw, limit);
         // Do not cache empty results: a retry later may find something.
         if (sources.length) {
-          writeCache(q, raw, opts.ttlHours).catch((err) => console.warn(`[search] cache write failed (${describeError(err)})`));
+          writeCache(cacheKey, raw, opts.ttlHours).catch((err) => console.warn(`[search] cache write failed (${describeError(err)})`));
         }
         return { sources, origin: sources.length ? 'live' : 'none' };
       } catch (err) {

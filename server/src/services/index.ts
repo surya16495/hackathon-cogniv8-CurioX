@@ -15,17 +15,21 @@ export interface Services {
 }
 
 export function buildServices(env: Env): Services {
+  const providers = [
+    createGeminiProvider({
+      apiKey: env.GEMINI_API_KEY,
+      modelMain: env.GEMINI_MODEL_MAIN,
+      modelLite: env.GEMINI_MODEL_LITE,
+      thinkingMain: env.GEMINI_THINKING_MAIN,
+      thinkingLite: env.GEMINI_THINKING_LITE,
+    }),
+    createGroqProvider({ apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL }),
+  ];
+  // LLM_CHAT_ORDER decides who goes first for every call, not only streamed answers.
+  const rank = (name: string) => (env.LLM_CHAT_ORDER.indexOf(name) + 1 || 99);
+  providers.sort((a, b) => rank(a.name) - rank(b.name));
   const llm = createLlmService({
-    providers: [
-      createGeminiProvider({
-        apiKey: env.GEMINI_API_KEY,
-        modelMain: env.GEMINI_MODEL_MAIN,
-        modelLite: env.GEMINI_MODEL_LITE,
-        thinkingMain: env.GEMINI_THINKING_MAIN,
-        thinkingLite: env.GEMINI_THINKING_LITE,
-      }),
-      createGroqProvider({ apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL }),
-    ],
+    providers,
     demoMode: env.DEMO_MODE,
     timeoutMs: env.LLM_TIMEOUT_MS,
     chatOrder: env.LLM_CHAT_ORDER,

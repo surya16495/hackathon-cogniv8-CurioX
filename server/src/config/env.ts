@@ -36,14 +36,14 @@ const envSchema = z.object({
     ),
   DEMO_MODE: bool,
   LLM_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30000),
-  // Provider order for streamed chat answers. Gemini first follows the plan; groq first streams much faster.
+  // Provider order for every model call (answers, JSON jobs, talk). Groq first streams much faster.
   LLM_CHAT_ORDER: z
     .string()
-    .default('gemini,groq')
+    .default('groq,gemini')
     .transform((v) => {
       const order = v.split(',').map((s) => s.trim().toLowerCase()).filter((s) => s === 'gemini' || s === 'groq');
       // A typo must not silently switch every answer to demo mode.
-      return order.length ? [...new Set(order)] : ['gemini', 'groq'];
+      return order.length ? [...new Set(order)] : ['groq', 'gemini'];
     }),
   SEARCH_CACHE_TTL_HOURS: z.coerce.number().positive().default(6),
 });

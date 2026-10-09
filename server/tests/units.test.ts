@@ -134,7 +134,8 @@ describe('loadEnv', () => {
 
   it('LLM_CHAT_ORDER ignores unknown names and never ends up empty', () => {
     expect(loadEnv({ MONGODB_URI: 'x', LLM_CHAT_ORDER: 'Groq, gemini, openai, groq' }).LLM_CHAT_ORDER).toEqual(['groq', 'gemini']);
-    expect(loadEnv({ MONGODB_URI: 'x', LLM_CHAT_ORDER: 'typo' }).LLM_CHAT_ORDER).toEqual(['gemini', 'groq']);
+    expect(loadEnv({ MONGODB_URI: 'x', LLM_CHAT_ORDER: 'typo' }).LLM_CHAT_ORDER).toEqual(['groq', 'gemini']);
+    expect(loadEnv({ MONGODB_URI: 'x' }).LLM_CHAT_ORDER).toEqual(['groq', 'gemini']);
   });
 
   it('rejects a bad port', () => expect(() => loadEnv({ MONGODB_URI: 'x', PORT: 'abc' })).toThrow(/PORT/));

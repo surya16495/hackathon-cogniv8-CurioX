@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { profileUpdateSchema, type ProfileResponse } from '@curiox/shared';
+import { profileFromReader, profileUpdateSchema, type ProfileResponse } from '@curiox/shared';
 import { Conversation, Message, User } from '../db/models';
 import { currentUser } from '../middleware/session';
 import { sanitizeProfile } from '../services/onboarding/extract';
@@ -19,7 +19,9 @@ export function profileRouter(): Router {
   router.put('/', async (req, res) => {
     const user = currentUser(req);
     const patch = profileUpdateSchema.parse(req.body ?? {});
-    const profile = sanitizeProfile({ ...userProfile(user), ...patch });
+    // An edited reader card rewrites the fields derived from it.
+    const derived = patch.reader ? profileFromReader(patch.reader) : {};
+    const profile = sanitizeProfile({ ...userProfile(user), ...patch, ...derived });
     const updated = await User.findByIdAndUpdate(user._id, { $set: { profile } }, { new: true });
     if (!updated) throw notFound('User not found');
     const body: ProfileResponse = { profile: userProfile(updated), onboarding: onboardingState(updated) };

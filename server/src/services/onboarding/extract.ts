@@ -1,7 +1,7 @@
 // Turn onboarding answers into a Profile: one lite-model JSON call, with a
 // rule-based fallback so onboarding always finishes, even offline.
 import { z } from 'zod';
-import { KNOWLEDGE_LEVELS, type KnowledgeLevel, type OnboardingStepKey, type Profile } from '@curiox/shared';
+import { KNOWLEDGE_LEVELS, readerCardSchema, type KnowledgeLevel, type OnboardingStepKey, type Profile } from '@curiox/shared';
 import { PROFILE_EXTRACTION_PROMPT } from '../../prompts/onboarding';
 import type { LlmService } from '../llm';
 import { truncate } from '../../utils/async';
@@ -49,6 +49,7 @@ export function sanitizeProfile(raw: unknown): Profile {
       if (levels.length >= MAX_ITEMS) break;
     }
   }
+  const reader = r.reader ? readerCardSchema.safeParse(r.reader) : null;
   return {
     interests: cleanList(r.interests),
     knowledgeLevels: levels,
@@ -56,6 +57,7 @@ export function sanitizeProfile(raw: unknown): Profile {
     explanationStyle: cleanText(r.explanationStyle),
     tone: cleanText(r.tone, 200),
     curiosities: cleanList(r.curiosities),
+    ...(reader?.success ? { reader: reader.data } : {}),
   };
 }
 

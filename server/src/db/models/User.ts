@@ -12,6 +12,21 @@ const profileSchema = new Schema(
     explanationStyle: { type: String, default: '' },
     tone: { type: String, default: '' },
     curiosities: { type: [String], default: [] },
+    /** The reader card exactly as picked; absent for profiles made by the old chat onboarding. */
+    reader: {
+      type: new Schema(
+        {
+          interests: { type: [String], default: [] },
+          level: { type: [String], default: [] },
+          goals: { type: [String], default: [] },
+          style: { type: [String], default: [] },
+          tone: { type: [String], default: [] },
+          curious: { type: [String], default: [] },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   { _id: false },
 );
@@ -35,6 +50,8 @@ const userSchema = new Schema(
     deviceId: { type: String, required: true, unique: true, index: true },
     profile: { type: profileSchema, default: () => ({}) },
     onboarding: { type: onboardingSchema, default: () => ({}) },
+    /** The last issue number handed out ("No. 14"); decks from chats and talks take numbers too. */
+    issueCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

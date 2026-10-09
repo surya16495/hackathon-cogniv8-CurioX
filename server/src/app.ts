@@ -16,6 +16,7 @@ import { chatRouter } from './routes/chat';
 import { conversationsRouter } from './routes/conversations';
 import { learnRouter } from './routes/learn';
 import { voiceRouter } from './routes/voice';
+import { decksRouter, issuesRouter, talkRouter } from './routes/issues';
 
 export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: Services): Express {
   const app = express();
@@ -55,6 +56,9 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'>, services: 
   app.use('/api/conversations', deviceSession, conversationsRouter());
   app.use('/api/learn', deviceSession, learnRouter(services));
   app.use('/api/voice', deviceSession, voiceRouter(services));
+  app.use('/api/issues', deviceSession, issuesRouter(services));
+  app.use('/api/decks', deviceSession, decksRouter(services));
+  app.use('/api/talk', deviceSession, talkRouter(services));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
