@@ -84,7 +84,7 @@ function Featured({ d, no, read, fresh, width, index, onPress }: { d: Deck; no: 
   const meta = d.relatedTo && d.relatedTo !== 'your talks' ? `because you follow ${topicName(d.relatedTo)}` : d.tag;
   return (
     <View style={{ width, paddingRight: 14 }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${index === 0 ? `issue ${no}` : 'story'}: ${d.title}`} onPress={onPress} style={({ pressed }) => ({ transform: pressed ? [{ scale: 0.985 }] : undefined })}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open ${index === 0 ? `issue ${no}` : 'story'}: ${d.title}`} onPress={onPress} style={({ pressed }) => (pressed ? { transform: [{ scale: 0.985 }] } : {})}>
         <Panel style={{ minHeight: 236, justifyContent: 'flex-end', gap: 12, paddingTop: 24, paddingHorizontal: 22, paddingBottom: 20 }}>
           <Cut art={d.art} size={152} rotate={index % 2 ? -8 : 8} style={{ position: 'absolute', right: -4, top: -26 }} />
           {read ? (
@@ -243,7 +243,7 @@ export function Home(p: HomeProps) {
               accessibilityRole="button"
               accessibilityLabel="Ask CurioX anything"
               onPress={p.onAsk}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 52, paddingLeft: 16, paddingRight: 5, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh, transform: pressed ? [{ scale: 0.99 }] : undefined })}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 52, paddingLeft: 16, paddingRight: 5, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh, ...(pressed ? { transform: [{ scale: 0.99 }] } : {}) })}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                 <Icon name="search" size={20} color={paper.ink2} />
