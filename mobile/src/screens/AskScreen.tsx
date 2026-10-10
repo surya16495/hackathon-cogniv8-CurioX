@@ -1,5 +1,5 @@
-// Ask CurioX: questions on ink strips, answers on taped-down paper, learn actions underneath,
-// and any answer can be turned into a deck of cards.
+// Ask CurioX: questions on ink strips; every answer arrives as a deck of cards (the prose is
+// never shown), with learn actions underneath to ask for more cards.
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,8 @@ import { circled, Markdown } from '../components/Markdown';
 import type { ChatItem, ChatStatus, UiMessage } from '../hooks/useChatStream';
 import { BottomSheet } from '../ui/BottomSheet';
 import { Icon } from '../ui/Icon';
-import { Bar, Btn, Chip, Ground, IconBtn, Mini, Note, Sheet, Stamp, T, useReduceMotion } from '../ui/kit';
+import { CopierSkeleton } from './Status';
+import { Bar, Btn, Chip, Ground, IconBtn, Mini, Note, Sheet, Stamp, Strip, T, useReduceMotion } from '../ui/kit';
 import { cutCorners, fonts, paper, type, useGround } from '../ui/tokens';
 
 const DEMO_PREFIX = /^_Demo answer:[^\n]*\n*/;
@@ -47,12 +48,37 @@ function UserStrip({ m }: { m: UiMessage }) {
   );
 }
 
-function Answer({ m, last, status, onSources, onCards, cardsBusy, onRetry, canCards }: { m: UiMessage; last: boolean; status: ChatStatus | null; onSources: (s: Source[]) => void; onCards: () => void; cardsBusy: boolean; onRetry: () => void; canCards: boolean }) {
+function Answer({ m, last, status, onSources, onCards, cardsBusy, onRetry, canCards, deckId, onOpenCards }: { m: UiMessage; last: boolean; status: ChatStatus | null; onSources: (s: Source[]) => void; onCards: () => void; cardsBusy: boolean; onRetry: () => void; canCards: boolean; deckId?: string; onOpenCards: (id: string) => void }) {
+  const g = useGround();
   const demo = m.provider === 'demo' || DEMO_PREFIX.test(m.content);
   const text = m.content.replace(DEMO_PREFIX, '');
   const waiting = m.streaming && !text;
   if (waiting) return <StatusLine text={status?.message ?? 'Thinking…'} />;
   const done = !m.streaming && !m.error && !!text;
+  // The answer as cards: a skeleton while it is written, then a strip that opens the deck.
+  if (!m.error && !m.stopped && !demo) {
+    if (deckId) {
+      return (
+        <Strip onPress={() => onOpenCards(deckId)} rotate={-0.5} accessibilityLabel="Your cards are ready. Open them" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 10, paddingHorizontal: 14 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: paper.yellow, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="cards" size={22} color={paper.ink} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <Text style={{ fontFamily: fonts.disp800, fontSize: 16, lineHeight: 20, color: paper.ink }}>Your cards are ready</Text>
+            <Text style={[type.typed, { color: paper.ink2 }]}>{m.sources.length ? `${m.sources.length} source${m.sources.length > 1 ? 's' : ''} · ` : ''}tap to open</Text>
+          </View>
+          <Icon name="chev" size={22} color={paper.ink} />
+        </Strip>
+      );
+    }
+    return (
+      <View style={{ gap: 8 }}>
+        <StatusLine text={m.streaming ? (status?.message ?? 'Writing…') : 'Making your cards…'} />
+        <CopierSkeleton cover={false} />
+        {done && m.sources.length > 0 && <Mini label={`${m.sources.length} source${m.sources.length > 1 ? 's' : ''}`} icon="link" onPress={() => onSources(m.sources)} />}
+      </View>
+    );
+  }
   return (
     <Sheet tape style={{ marginTop: 8, paddingTop: demo ? 38 : 20 }}>
       {demo && <Stamp label="Demo answer" bg={paper.white} style={{ position: 'absolute', right: 12, top: -18 }} />}
@@ -76,6 +102,9 @@ function Answer({ m, last, status, onSources, onCards, cardsBusy, onRetry, canCa
 
 export interface AskProps {
   items: ChatItem[];
+  /** Deck id per answered message id, once the cards exist. */
+  cardsFor: Record<string, string>;
+  onOpenCards: (deckId: string) => void;
   status: ChatStatus | null;
   busy: boolean;
   hasAnswer: boolean;
@@ -129,7 +158,7 @@ export function AskScreen(p: AskProps) {
             m.role === 'user' ? (
               <UserStrip key={m.id} m={m} />
             ) : (
-              <Answer key={m.id} m={m} last={m === lastAssistant} status={p.status} onSources={setSources} onCards={p.onCards} cardsBusy={p.cardsBusy} onRetry={p.onRetry} canCards={p.canCards} />
+              <Answer key={m.id} m={m} last={m === lastAssistant} status={p.status} onSources={setSources} onCards={p.onCards} cardsBusy={p.cardsBusy} onRetry={p.onRetry} canCards={p.canCards} deckId={p.cardsFor[m.id]} onOpenCards={p.onOpenCards} />
             ),
           )}
         </ScrollView>

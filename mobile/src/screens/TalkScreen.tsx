@@ -1,50 +1,47 @@
 // Talk: the one place CurioX speaks and listens. Opening it starts a guided conversation:
 // hello and today's updates → what do you want to learn about? → the explanation → your view →
-// the impact → what you make of it → open chat, until you wrap up. Every point lands as a yellow
-// slip; the whole talk can be stapled into a deck. Voice is on only while this screen is open.
+// the impact → what you make of it → open chat, until you wrap up. While it runs, only the
+// transcript shows (scrolling as it grows); after the wrap-up a summary card opens the deck made
+// from the talk. A deck's mic button opens Talk straight onto that topic. Voice is on only here.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VOICE_TONES, VOICE_TONE_LABEL, VOICE_TONE_SPEECH, type TalkFinishResponse, type TalkPoint, type TalkStage, type VoiceTone } from '@curiox/shared';
 import { api } from '../api/client';
 import { localDate } from '../hooks/useZine';
 import { Blob, type BlobPhase } from '../talk/Blob';
-import { Bar, Btn, Chip, Ground, IconBtn, Note, useReduceMotion } from '../ui/kit';
-import { curves, fonts, paper, useGround } from '../ui/tokens';
+import { Bar, Btn, Chip, Ground, IconBtn, Note, Panel, PasteIn } from '../ui/kit';
+import { Icon } from '../ui/Icon';
+import { fonts, paper, useGround } from '../ui/tokens';
 import { useVoiceScreen } from '../voice/VoiceProvider';
 
-function Slip({ n, text, index }: { n: number; text: string; index: number }) {
-  const reduce = useReduceMotion();
-  const drop = useRef(new Animated.Value(reduce ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(drop, { toValue: 1, duration: 400, easing: Easing.bezier(...curves.slap), useNativeDriver: true }).start();
-  }, [drop]);
+/** After the wrap-up: the talk's takeaways on a yellow card; tapping opens the deck made from it. */
+function SummaryCard({ topic, points, deckId, onOpen }: { topic: string; points: string[]; deckId: string | null; onOpen: () => void }) {
   const g = useGround();
-  const tilt = index % 2 ? 1.2 : -1.6;
   return (
-    <Animated.View
-      accessibilityLabel={`Point ${n}: ${text}`}
-      style={{
-        width: 152,
-        minHeight: 150,
-        marginTop: index % 2 ? 8 : 0,
-        paddingTop: 13,
-        paddingHorizontal: 13,
-        paddingBottom: 14,
-        borderRadius: 14,
-        backgroundColor: paper.yellow,
-        boxShadow: g.sh,
-        opacity: drop,
-        transform: [
-          { translateY: drop.interpolate({ inputRange: [0, 1], outputRange: [-130, 0] }) },
-          { scale: drop.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) },
-          { rotate: drop.interpolate({ inputRange: [0, 1], outputRange: ['-14deg', `${tilt}deg`] }) },
-        ],
-      }}
-    >
-      <Text style={{ fontFamily: fonts.typeBold, fontSize: 13, lineHeight: 13, color: paper.ink, marginBottom: 9 }}>{n}</Text>
-      <Text style={{ fontFamily: fonts.disp700, fontSize: 16, lineHeight: 20, color: paper.ink }}>{text}</Text>
-    </Animated.View>
+    <PasteIn style={{ alignSelf: 'stretch', paddingHorizontal: 20 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Summary of ${topic}. ${deckId ? 'Open the cards' : ''}`} onPress={onOpen} disabled={!deckId}>
+        <Panel style={{ paddingTop: 18, paddingHorizontal: 20, paddingBottom: 16, gap: 8, transform: [{ rotate: '-0.8deg' }] }}>
+          <Text style={{ fontFamily: fonts.typeBold, fontSize: 13, letterSpacing: 0.78, textTransform: 'uppercase', color: paper.onYellow2 }}>What we talked about</Text>
+          <Text style={{ fontFamily: fonts.disp800, fontSize: 22, lineHeight: 26, color: paper.ink }}>{topic}</Text>
+          {points.slice(0, 3).map((pt, i) => (
+            <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
+              <Text style={{ fontFamily: fonts.typeBold, fontSize: 14, lineHeight: 20, color: paper.ink }}>{i + 1}</Text>
+              <Text style={{ fontFamily: fonts.disp700, fontSize: 15.5, lineHeight: 20, color: paper.ink, flex: 1 }}>{pt}</Text>
+            </View>
+          ))}
+          {deckId ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+              <Icon name="cards" size={20} color={paper.ink} />
+              <Text style={{ fontFamily: fonts.disp800, fontSize: 15.5, color: paper.ink }}>Open the summary cards</Text>
+              <Icon name="chev" size={20} color={paper.ink} />
+            </View>
+          ) : (
+            <Text style={{ fontFamily: fonts.body, fontSize: 14, color: g.onGround2 }}>making the cards…</Text>
+          )}
+        </Panel>
+      </Pressable>
+    </PasteIn>
   );
 }
 
@@ -59,9 +56,11 @@ export interface TalkProps {
   onStaple: (points: TalkPoint[]) => Promise<void>;
   onFinished: (result: TalkFinishResponse) => void;
   onOpenDeck: (id: string) => void;
+  /** Open straight onto a topic (from a deck's mic button). `key` changes for each request. */
+  openWith?: { key: string; topic: string; title: string } | null;
 }
 
-export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished, onOpenDeck }: TalkProps) {
+export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished, onOpenDeck, openWith }: TalkProps) {
   const g = useGround();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -71,6 +70,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
   /** Everything said so far, by both sides, as shown on screen. */
   const [transcript, setTranscript] = useState<{ who: 'you' | 'curiox'; text: string }[]>([]);
   const [summaryDeckId, setSummaryDeckId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<{ topic: string; points: string[] } | null>(null);
   const transcriptRef = useRef<ScrollView>(null);
   const [busy, setBusy] = useState(false);
   const [label, setLabel] = useState<string | null>(null);
@@ -83,7 +83,6 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
   const topic = useRef<string | undefined>(undefined);
   const history = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const pointsRef = useRef<TalkPoint[]>([]);
-  const slipsRef = useRef<ScrollView>(null);
   const date = localDate();
 
   const setPhaseBoth = (p: Phase) => {
@@ -125,9 +124,24 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       if (mine !== run.current) return false;
       pointsRef.current = [...pointsRef.current, p];
       setPoints(pointsRef.current);
-      setTimeout(() => slipsRef.current?.scrollToEnd({ animated: true }), 60);
     }
     return true;
+  };
+
+  /** A fresh conversation about a given topic: no greeting, straight into the explanation. */
+  const startWith = async (topic: string, title: string) => {
+    run.current++;
+    history.current = [];
+    pointsRef.current = [];
+    stage.current = 'topic';
+    setPoints([]);
+    setCaption(null);
+    setTranscript([]);
+    setSummaryDeckId(null);
+    setSummary(null);
+    setLabel(null);
+    setPhaseBoth('talking');
+    await heard(`Tell me about ${title || topic}.`);
   };
 
   /** The greeting: hello, today's updates, and "what do you want to learn about?" */
@@ -141,6 +155,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
     setCaption(null);
     setTranscript([]);
     setSummaryDeckId(null);
+    setSummary(null);
     setLabel(null);
     setPhaseBoth('opening');
     setBusy(true);
@@ -207,6 +222,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       if (mine !== run.current) return;
       onFinished(res);
       setSummaryDeckId(res.summaryDeckId);
+      setSummary({ topic: res.topic || topic.current || 'Our talk', points: res.keyPoints });
       const extra = res.addedInterest
         ? ` I've added ${res.topic} to what you follow${res.deckId ? ', and put the latest on it on your home' : ''}.`
         : res.deckId
@@ -238,11 +254,17 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
   // Voice lives only on this screen. The first time Talk opens in a session it says hello by itself;
   // after a wrap-up, or when the reader comes back from another page, it waits for the blob.
   const greeted = useRef(false);
+  const openedWith = useRef<string | null>(null);
   useEffect(() => {
     const v = voiceRef.current;
     if (active) {
       v.setSpeechStyle(VOICE_TONE_SPEECH[tone]);
-      if (!greeted.current && phaseRef.current === 'idle') {
+      if (openWith && openedWith.current !== openWith.key) {
+        openedWith.current = openWith.key;
+        greeted.current = true;
+        v.enable({ quiet: true });
+        void startWith(openWith.topic, openWith.title);
+      } else if (!greeted.current && phaseRef.current === 'idle') {
         greeted.current = true;
         v.enable({ quiet: true });
         void start();
@@ -254,7 +276,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       if (phaseRef.current === 'opening') setPhaseBoth('idle');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [active, openWith?.key]);
 
   useEffect(() => {
     voiceRef.current.setSpeechStyle(VOICE_TONE_SPEECH[tone]);
@@ -274,7 +296,9 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
           : blobPhase === 'speaking'
             ? 'Press to interrupt'
             : `${label ?? ''}${points.length ? 'Press and say more' : 'Press and ask out loud'}`;
-  const hasSlips = points.length > 0;
+  // While the talk runs the transcript has the screen; the blob shrinks to the top.
+  const compact = transcript.length > 0 || phase === 'done';
+  const hasSlips = compact;
   const R = Math.min(area.w * 0.6, area.h * 0.46, 330);
 
   const pressBlob = () => {
@@ -311,7 +335,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
             const { x, y, width: w, height: h } = e.nativeEvent.layout;
             setArea({ x, y, w, h });
           }}
-          style={{ alignSelf: 'stretch', ...(hasSlips || transcript.length ? { height: Math.min(240, height * 0.28) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
+          style={{ alignSelf: 'stretch', ...(compact ? { height: Math.min(220, height * 0.26) } : { flex: 1 }), alignItems: 'center', justifyContent: 'center' }}
         >
           <Text
             style={{
@@ -337,8 +361,9 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
         {/* The transcript: what you said in pen, what CurioX said in print. */}
         <ScrollView
           ref={transcriptRef}
-          style={{ alignSelf: 'stretch', flexGrow: 0, maxHeight: hasSlips ? 150 : 220, minHeight: 76 }}
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, gap: 8 }}
+          onContentSizeChange={() => transcriptRef.current?.scrollToEnd({ animated: true })}
+          style={{ alignSelf: 'stretch', ...(phase === 'done' ? { flexGrow: 0, maxHeight: 150 } : compact ? { flex: 1 } : { flexGrow: 0, maxHeight: 220 }), minHeight: 76 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12, gap: 10 }}
           accessibilityLiveRegion="polite"
           accessibilityLabel="Transcript"
         >
@@ -352,19 +377,16 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
           ))}
         </ScrollView>
 
-        {hasSlips ? (
-          <ScrollView ref={slipsRef} horizontal showsHorizontalScrollIndicator={false} style={{ alignSelf: 'stretch', flex: 1 }} contentContainerStyle={{ gap: 12, alignItems: 'flex-start', paddingTop: 14, paddingHorizontal: 20, paddingBottom: 10 }}>
-            {points.map((p, i) => (
-              <Slip key={`${i}-${p.h}`} n={i + 1} text={p.say} index={i} />
-            ))}
-          </ScrollView>
+        {phase === 'done' && summary ? (
+          <View style={{ alignSelf: 'stretch', flex: 1, justifyContent: 'flex-start', paddingTop: 6 }}>
+            <SummaryCard topic={summary.topic} points={summary.points} deckId={summaryDeckId} onOpen={() => summaryDeckId && onOpenDeck(summaryDeckId)} />
+          </View>
         ) : (
           phase === 'idle' && <Note style={{ marginHorizontal: 24 }}>press the blob and I'll say hello</Note>
         )}
 
         <View style={{ alignSelf: 'stretch', gap: 8, alignItems: 'center', paddingTop: 2, paddingHorizontal: 20, paddingBottom: 8 }}>
-          {phase === 'done' && summaryDeckId && <Btn label="Open the summary cards" icon="cards" onPress={() => onOpenDeck(summaryDeckId)} />}
-          {hasSlips && phase !== 'talking' && phase !== 'opening' && !summaryDeckId && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
+          {phase === 'done' && points.length > 0 && !summaryDeckId && !summary && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
           {!voice.canListen && (
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, paddingRight: 5, paddingLeft: 16, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh }}>
               <TextInput value={typed} onChangeText={setTyped} placeholder="Type to talk" placeholderTextColor={paper.ink2} onSubmitEditing={send} returnKeyType="send" style={{ flex: 1, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }} />

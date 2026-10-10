@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Linking, Pressable, Text, TextInput, View, useWindowDimensions, type ViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deckSpeech, type Card, type Deck, type DeckSummary, type TeachResponse } from '@curiox/shared';
+import { cardSpeech, deckSpeech, type Card, type Deck, type DeckSummary, type TeachResponse } from '@curiox/shared';
 import { api } from '../api/client';
 import { CardPage, GuessCard, HookCard, MythCard, PinChip, SimpleCard, VsCard, WatchCard, WaysCard, WhatCard, WhyCard, CardH, type PinTarget } from '../deck/Cards';
 import type { Pin } from '../hooks/useZine';
@@ -16,6 +16,15 @@ import { Btn, Ground, IconBtn, Note, Panel, Pill, Stamp, Strip, useSize } from '
 import { fonts, paper, type, useGround } from '../ui/tokens';
 import { speak, stopSpeaking } from '../voice/tts';
 
+/** What the headset reads for one card: the question with its answer, not the voice-mode prompt. */
+function readText(c: Deck['cards'][number]): string {
+  if (c.kind === 'myth') return `Myth or fact? ${c.claim.replace(/[“”"]/g, '')}. It's a ${c.answer}. ${c.explain}`;
+  if (c.kind === 'ways') return `${c.question} ${c.ways.map((w) => `${w.label}: ${w.text}`).join(' ')}`;
+  if (c.kind === 'guess') return `${c.question} The answer is ${c.answer}${c.unit ? ` ${c.unit}` : ''}. ${c.explain}`;
+  if (c.kind === 'watch') return '';
+  return cardSpeech(c);
+}
+
 export interface DeckScreenProps {
   deck: Deck;
   next: Deck | DeckSummary | null;
@@ -25,6 +34,8 @@ export interface DeckScreenProps {
   onClose: () => void;
   onQuiz: () => void;
   onNext: (id: string) => void;
+  /** The mic button: talk to CurioX about this deck's topic. */
+  onTalk: () => void;
   startCard?: number;
   lang: string;
   /** For voice: what the deck can do, kept current every render. */
@@ -221,6 +232,9 @@ export function DeckScreen(p: DeckScreenProps) {
   const [arrived, setArrived] = useState(false);
   const [sheet, setSheet] = useState<'sources' | 'teach' | null>(null);
   const [listening, setListening] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [tip, setTip] = useState(true);
+  const readRun = useRef(0);
   const [listHeight, setListHeight] = useState<number | undefined>(undefined);
   const { deck } = p;
   const n = deck.cards.length + 1;
@@ -251,6 +265,12 @@ export function DeckScreen(p: DeckScreenProps) {
   }, [i]);
 
   useEffect(() => () => stopSpeaking(), []);
+  // The mic's tooltip shows for a few seconds on arrival, and again on a long press.
+  useEffect(() => {
+    if (!tip) return;
+    const t = setTimeout(() => setTip(false), 4500);
+    return () => clearTimeout(t);
+  }, [tip]);
 
   const goTo = useCallback((k: number) => {
     const to = Math.max(0, Math.min(n - 1, k));
@@ -264,8 +284,36 @@ export function DeckScreen(p: DeckScreenProps) {
       stopSpeaking();
       return setListening(false);
     }
+    readRun.current++;
+    setReading(false);
     setListening(true);
     void speak(deckSpeech(deck), p.lang).then(() => setListening(false));
+  };
+
+  /** The headset: read the whole deck out loud, turning to each card as it is read, then the summary. */
+  const readAll = async () => {
+    if (reading) {
+      readRun.current++;
+      stopSpeaking();
+      return setReading(false);
+    }
+    const mine = ++readRun.current;
+    setListening(false);
+    setReading(true);
+    for (let k = 0; k < deck.cards.length; k++) {
+      if (mine !== readRun.current) return;
+      const text = readText(deck.cards[k]!);
+      if (!text) continue;
+      goTo(k);
+      await new Promise((r) => setTimeout(r, 350));
+      if (mine !== readRun.current) return;
+      const ok = await speak(text, p.lang);
+      if (!ok || mine !== readRun.current) return;
+    }
+    if (mine !== readRun.current) return;
+    goTo(n - 1);
+    if (deck.summary?.trim()) await speak(`To sum up. ${deck.summary.trim()}`, p.lang);
+    if (mine === readRun.current) setReading(false);
   };
 
   if (p.control) {
@@ -335,6 +383,18 @@ export function DeckScreen(p: DeckScreenProps) {
             </Text>
           </View>
           <Pill label={`${i + 1}/${n}`} />
+          <IconBtn name="ear" label={reading ? 'Stop reading' : 'Read this topic to me'} color={reading ? paper.pen : g.onGround} onPress={() => void readAll()} />
+          <View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Talk to CurioX about this topic" accessibilityHint="Opens Talk on this topic" onPress={p.onTalk} onLongPress={() => setTip(true)} hitSlop={6} style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: paper.yellow, alignItems: 'center', justifyContent: 'center', boxShadow: g.sh, ...(pressed ? { transform: [{ scale: 0.92 }] } : {}) })}>
+              <Icon name="mic" size={22} color={paper.ink} />
+            </Pressable>
+            {tip && (
+              <View pointerEvents="none" style={{ position: 'absolute', right: 0, top: 46, width: 190, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: paper.ink, boxShadow: g.sh, zIndex: 20 }}>
+                <View style={{ position: 'absolute', right: 14, top: -6, width: 12, height: 12, backgroundColor: paper.ink, transform: [{ rotate: '45deg' }] }} />
+                <Text style={{ fontFamily: fonts.disp700, fontSize: 14, lineHeight: 18, color: paper.white }}>Talk to CurioX about this topic</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <FlatList

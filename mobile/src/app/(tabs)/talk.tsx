@@ -1,4 +1,5 @@
-import { useIsFocused, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { VOICE_TONE_LABEL, voiceToneOf, type VoiceTone } from '@curiox/shared';
 import { api } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
@@ -11,6 +12,9 @@ export default function TalkRoute() {
   const { session, update } = useSession();
   const { addDeck, loadToday } = useZine();
   const tone = voiceToneOf(session?.profile.tone);
+  // From a deck's mic button: talk about that topic straight away.
+  const params = useLocalSearchParams<{ topic?: string; title?: string; t?: string }>();
+  const openWith = useMemo(() => (params.topic && params.t ? { key: params.t, topic: params.topic, title: params.title ?? params.topic } : null), [params.topic, params.title, params.t]);
 
   const setTone = (t: VoiceTone) => {
     if (!session) return;
@@ -36,6 +40,7 @@ export default function TalkRoute() {
         void loadToday();
       }}
       onOpenDeck={(id) => router.push({ pathname: '/deck/[id]', params: { id } })}
+      openWith={openWith}
     />
   );
 }

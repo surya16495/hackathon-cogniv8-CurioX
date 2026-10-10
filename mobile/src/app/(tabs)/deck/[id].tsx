@@ -45,6 +45,7 @@ function DeckInner({ id, card }: { id: string; card?: string }) {
       onClose={close}
       onQuiz={() => router.push({ pathname: '/quiz', params: { deck: deck.id } })}
       onNext={(nid) => router.replace({ pathname: '/deck/[id]', params: { id: nid } })}
+      onTalk={() => router.navigate({ pathname: '/talk', params: { topic: deck.topic || deck.title, title: deck.title, t: String(Date.now()) } })}
       startCard={Number(card) || 0}
       lang={lang}
     />

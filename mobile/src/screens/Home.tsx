@@ -2,15 +2,14 @@
 // panels, the rest of the issue grouped by what the reader follows (and what is related to it),
 // and back issues on a rack.
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions, type ViewToken } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions, type ViewToken } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { topicName, type Deck, type DeckSummary, type TodayResponse } from '@curiox/shared';
 import { Cut, Sticker } from '../ui/Art';
 import { Icon } from '../ui/Icon';
-import { AppIcon } from './Opening';
 import { CopierSkeleton } from './Status';
-import { EmptyCard, Ground, IconBtn, Mini, Note, Panel, PasteIn, Stamp, Staple, Strip, T, Tape, Tickbox, useReduceMotion } from '../ui/kit';
-import { curves, fonts, paper, type, useGround } from '../ui/tokens';
+import { EmptyCard, Ground, Mini, Note, Panel, PasteIn, Stamp, Staple, Strip, T, Tickbox } from '../ui/kit';
+import { fonts, paper, type, useGround } from '../ui/tokens';
 
 export interface HomeProps {
   today: TodayResponse | null;
@@ -29,54 +28,9 @@ export interface HomeProps {
 }
 
 const cardsLabel = (d: Deck | DeckSummary) => `${'cardCount' in d ? d.cardCount : d.cards.length + 1} cards`;
-const slap = Easing.bezier(...curves.slap);
 
 /** Pastes its children down: a short drop, a slight twist, settling flat. */
 
-function Banner({ show, title, body, onOpen, onClose }: { show: boolean; title: string; body: string; onOpen: () => void; onClose: () => void }) {
-  const g = useGround();
-  const insets = useSafeAreaInsets();
-  const reduce = useReduceMotion();
-  const y = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(y, { toValue: show ? 1 : 0, duration: reduce ? 0 : 400, easing: slap, useNativeDriver: true }).start();
-  }, [show, reduce, y]);
-  return (
-    <Animated.View
-      pointerEvents={show ? 'auto' : 'none'}
-      accessibilityElementsHidden={!show}
-      accessibilityLiveRegion="polite"
-      style={{
-        position: 'absolute',
-        left: 12,
-        right: 12,
-        top: insets.top + 8,
-        zIndex: 45,
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingLeft: 12,
-        paddingRight: 4,
-        backgroundColor: g.strip,
-        borderRadius: 6,
-        boxShadow: g.shUp,
-        transform: [{ translateY: y.interpolate({ inputRange: [0, 1], outputRange: [-160, 0] }) }, { rotate: '-1deg' }],
-      }}
-    >
-      <Tape style={{ left: undefined, right: 64, top: -11, transform: [{ rotate: '4deg' }] }} />
-      <AppIcon />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={{ fontFamily: fonts.disp800, fontSize: 16, lineHeight: 19, color: paper.ink }}>{title}</Text>
-        <Text numberOfLines={2} style={{ fontFamily: fonts.body, fontSize: 14.5, lineHeight: 19, color: paper.ink }}>
-          {body}
-        </Text>
-      </View>
-      <Mini label="Open" fill onPress={onOpen} />
-      <IconBtn name="x" label="Dismiss" color={paper.ink} onPress={onClose} />
-    </Animated.View>
-  );
-}
 
 /** One featured deck in the carousel: the design's "today" panel. */
 function Featured({ d, no, read, fresh, width, index, onPress }: { d: Deck; no: number; read: boolean; fresh: boolean; width: number; index: number; onPress: () => void }) {
@@ -180,31 +134,9 @@ export function Home(p: HomeProps) {
   const g = useGround();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const [banner, setBanner] = useState(false);
   const [slide, setSlide] = useState(0);
-  const shown = useRef(false);
-  const reduce = useReduceMotion();
   const issue = p.today?.issue;
   const lead = issue?.lead;
-  const leadRead = lead ? p.isRead(lead.id) : false;
-
-  // While the banner is down, the page slides down out of its way.
-  const push = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(push, { toValue: banner ? 72 : 0, duration: reduce ? 0 : 400, easing: slap, useNativeDriver: true }).start();
-  }, [banner, reduce, push]);
-
-  // The in-app banner, once, if today's lead is still unread.
-  useEffect(() => {
-    if (!lead || leadRead || shown.current) return;
-    shown.current = true;
-    const a = setTimeout(() => setBanner(true), 1600);
-    const b = setTimeout(() => setBanner(false), 1600 + 7000);
-    return () => {
-      clearTimeout(a);
-      clearTimeout(b);
-    };
-  }, [lead, leadRead]);
 
   const byId = new Map<string, Deck>((issue ? [issue.lead, ...issue.stories] : []).map((d) => [d.id, d]));
   const featured = (issue?.featured ?? []).map((id) => byId.get(id)).filter((d): d is Deck => !!d);
@@ -224,7 +156,7 @@ export function Home(p: HomeProps) {
 
   return (
     <Ground>
-      <Animated.View style={{ flex: 1, overflow: 'hidden', transform: [{ translateY: push }] }}>
+      <View style={{ flex: 1, overflow: 'hidden' }}>
         <ScrollView
           contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 20, paddingBottom: 24 }}
           refreshControl={<RefreshControl refreshing={false} onRefresh={p.onRetry} tintColor={g.onGround} />}
@@ -370,20 +302,7 @@ export function Home(p: HomeProps) {
             </View>
           )}
         </ScrollView>
-      </Animated.View>
-
-      {lead && (
-        <Banner
-          show={banner}
-          title={`Issue No. ${issue!.no} is out`}
-          body={lead.title}
-          onOpen={() => {
-            setBanner(false);
-            p.onOpenDeck(lead.id);
-          }}
-          onClose={() => setBanner(false)}
-        />
-      )}
+      </View>
     </Ground>
   );
 }
