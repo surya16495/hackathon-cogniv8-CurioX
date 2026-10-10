@@ -132,9 +132,4 @@ npm run dev:mobile
 
 Team cogniv8, Apty Hackathon 2026.
 
-| Name | Lane |
-| --- | --- |
-| Surya | Product, mobile app, backend |
-| _add teammate_ | _lane_ |
-
 Sticker artwork: Twemoji, CC BY 4.0.
