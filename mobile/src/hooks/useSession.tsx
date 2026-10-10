@@ -3,6 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { HealthResponse, OnboardingState, Profile, SessionResponse } from '@curiox/shared';
 import { ApiError, api, wakeServer } from '../api/client';
 import { KEYS, loadStorage, storage } from '../lib/storage';
+import { pushToken } from '../lib/notify';
+import { Platform } from 'react-native';
 
 export type SessionPhase = 'waking' | 'slow' | 'ready' | 'error';
 
@@ -55,6 +57,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       controller.abort();
     };
   }, [attempt]);
+
+  // Register this phone for push updates on what the reader follows (native builds only).
+  const userId = session?.userId;
+  useEffect(() => {
+    if (!userId || Platform.OS === 'web') return;
+    let alive = true;
+    void pushToken().then((t) => {
+      if (!t || !alive) return;
+      api.registerPush(t, Platform.OS === 'ios' ? 'ios' : 'android').catch(() => undefined);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   const take = useCallback((res: { token: string; session: SessionResponse }) => {

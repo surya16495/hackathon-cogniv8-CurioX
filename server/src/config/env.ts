@@ -48,6 +48,8 @@ const envSchema = z.object({
   SEARCH_CACHE_TTL_HOURS: z.coerce.number().positive().default(6),
   /** Signs account tokens. Unset: a random secret per boot, so tokens stop working on restart. */
   AUTH_SECRET: optionalKey,
+  /** Minutes between checks for fresh news on what readers follow (sent as push notifications). 0 turns the scheduler off. */
+  PUSH_INTERVAL_MIN: z.coerce.number().int().min(0).default(180),
 });
 
 export type Env = z.infer<typeof envSchema>;

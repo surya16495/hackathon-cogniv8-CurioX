@@ -31,6 +31,11 @@ export interface YouProps {
   onRemovePhoto: () => void;
   onName: (name: string) => void;
   stats: { read: number; pinned: number; issues: number };
+  /** Push updates: how many phones are registered and what is watched; null while unknown. */
+  push: { tokens: number; topics: string[]; available: boolean } | null;
+  pushBusy: boolean;
+  pushResult: string | null;
+  onPushCheck: () => void;
 }
 
 /** The photo, or the first letter of the name on a white round of paper. */
@@ -185,6 +190,27 @@ export function YouScreen(p: YouProps) {
             </View>
           </View>
         )}
+
+        <T v="secH" style={{ marginTop: 36, marginBottom: 12 }}>
+          Updates
+        </T>
+        <Sheet tape>
+          <View style={{ gap: 12 }}>
+            <T v="hint" muted onPaper>
+              {!p.push || !p.push.available
+                ? 'When something new happens in a topic you follow, CurioX sends it to your phone. Push notifications need the installed app (not Expo Go on Android).'
+                : p.push.tokens
+                  ? `This phone gets a notification when something new happens in ${p.push.topics.length ? p.push.topics.map(topicName).join(', ') : 'what you read and talk about'}.`
+                  : 'Allow notifications and CurioX will send you updates on what you follow.'}
+            </T>
+            {!!p.push?.tokens && <Btn label={p.pushBusy ? 'Checking…' : 'Check my topics now'} variant="paper" icon="refresh" disabled={p.pushBusy} onPress={p.onPushCheck} />}
+            {!!p.pushResult && (
+              <Text style={[type.note, { color: paper.pen, lineHeight: 24 }]} accessibilityLiveRegion="polite">
+                {p.pushResult}
+              </Text>
+            )}
+          </View>
+        </Sheet>
 
         <T v="secH" style={{ marginTop: 36, marginBottom: 12 }}>
           Account

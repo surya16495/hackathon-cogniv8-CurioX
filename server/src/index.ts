@@ -2,6 +2,7 @@ import { loadEnv } from './config/env';
 import { connectDb, disconnectDb } from './db/connect';
 import { createApp } from './app';
 import { buildServices } from './services';
+import { startPushScheduler } from './services/push';
 
 async function main() {
   const env = loadEnv();
@@ -21,9 +22,12 @@ async function main() {
   server.keepAliveTimeout = 65_000;
 
   await connectDb(env.MONGODB_URI);
+  const stopPush = startPushScheduler(services, env.PUSH_INTERVAL_MIN);
+  if (env.PUSH_INTERVAL_MIN) console.info(`[push] checking followed topics every ${env.PUSH_INTERVAL_MIN} min`);
 
   const shutdown = (signal: string) => {
     console.info(`[curiox] ${signal} received, shutting down`);
+    stopPush();
     server.close(() => {
       disconnectDb().finally(() => process.exit(0));
     });

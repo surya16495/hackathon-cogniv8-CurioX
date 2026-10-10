@@ -9,6 +9,8 @@ import type {
   ChatRequest,
   PinDto,
   PinsResponse,
+  PushCheckResponse,
+  PushStatus,
   SignalKind,
   SignalResponse,
   CreateDeckRequest,
@@ -140,6 +142,9 @@ export const api = {
   pins: () => request<PinsResponse>('GET', '/api/pins'),
   signal: (topic: string, kind: SignalKind) => request<SignalResponse>('POST', '/api/signals', { topic, kind }),
   savePin: (pin: PinDto) => request<void>('PUT', '/api/pins', pin),
+  pushStatus: () => request<PushStatus>('GET', '/api/push'),
+  registerPush: (token: string, platform: 'ios' | 'android') => request<PushStatus>('POST', '/api/push/token', { token, platform }),
+  pushCheck: () => request<PushCheckResponse>('POST', '/api/push/check'),
   deletePin: (id: string) => request<void>('DELETE', `/api/pins/${encodeURIComponent(id)}`),
 
   // The zine: reader card, issues, decks, talk.

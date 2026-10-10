@@ -60,6 +60,11 @@ const userSchema = new Schema(
     issueCount: { type: Number, default: 0, min: 0 },
     /** What the reader has shown interest in by reading, asking and talking; a high score becomes an interest. */
     interestSignals: { type: [{ _id: false, topic: { type: String, required: true }, score: { type: Number, default: 0 }, lastAt: { type: Date } }], default: [] },
+    /** Expo push tokens for the reader's phones. */
+    pushTokens: { type: [{ _id: false, token: { type: String, required: true }, platform: { type: String, default: '' }, addedAt: { type: Date, default: Date.now } }], default: [] },
+    /** Story URLs already sent as a push, so nothing goes twice. */
+    pushed: { type: [{ _id: false, url: { type: String, required: true }, at: { type: Date, default: Date.now } }], default: [] },
+    pushCheckedAt: { type: Date },
   },
   { timestamps: true },
 );

@@ -20,7 +20,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function NotificationOpener() {
   const router = useRouter();
-  useEffect(() => onNotificationOpen((id) => router.push({ pathname: '/deck/[id]', params: { id } })), [router]);
+  useEffect(() => onNotificationOpen(({ deckId }) => (deckId ? router.push({ pathname: '/deck/[id]', params: { id: deckId } }) : router.navigate('/home'))), [router]);
   return null;
 }
 

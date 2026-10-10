@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { blankReader, readerFromProfile, type ReaderCard } from '@curiox/shared';
 import { api } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
@@ -15,6 +16,36 @@ export default function YouRoute() {
   const { loadToday, pins, today } = useZine();
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [push, setPush] = useState<{ tokens: number; topics: string[]; available: boolean } | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushResult, setPushResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    let alive = true;
+    api
+      .pushStatus()
+      .then((s) => alive && setPush({ ...s, available: Platform.OS !== 'web' }))
+      .catch(() => alive && setPush({ tokens: 0, topics: [], available: Platform.OS !== 'web' }));
+    return () => {
+      alive = false;
+    };
+  }, [session]);
+
+  const pushCheck = async () => {
+    setPushBusy(true);
+    setPushResult(null);
+    try {
+      const r = await api.pushCheck();
+      setPush({ tokens: r.tokens, topics: r.topics, available: true });
+      setPushResult(r.sent.length ? `sent: ${r.sent.map((s) => `${s.title} (${s.topic})`).join('; ')}` : 'nothing new since the last check');
+      if (r.sent.some((s) => s.deckId)) void loadToday();
+    } catch (err) {
+      setPushResult(err instanceof Error ? err.message : 'could not check just now');
+    } finally {
+      setPushBusy(false);
+    }
+  };
   const [reader, setReader] = useState<ReaderCard>(() => (session ? readerFromProfile(session.profile) : blankReader()));
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -119,6 +150,10 @@ export default function YouRoute() {
       onRemovePhoto={() => void saveAccount({ avatar: null })}
       onName={(name) => void saveAccount({ name })}
       stats={{ read: getJson<string[]>(KEYS.read, []).length, pinned: pins.length, issues: today?.issue.no ?? 0 }}
+      push={push}
+      pushBusy={pushBusy}
+      pushResult={pushResult}
+      onPushCheck={() => void pushCheck()}
     />
   );
 }

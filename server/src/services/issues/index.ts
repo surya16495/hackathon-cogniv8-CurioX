@@ -278,11 +278,26 @@ const MAX_STORIES = 9;
 export interface DraftContext {
   /** Topics from the reader's recent talks, newest first, not already interests. */
   talkTopics?: string[];
+  /** Topics the reader has read or asked about (interest signals), strongest first. */
+  signalTopics?: string[];
+}
+
+/** What a new reader has told us, for picking topics before they follow anything. */
+export function readerHints(profile: Profile, ctx: DraftContext): string {
+  const parts: string[] = [];
+  const r = profile.reader;
+  if (profile.goals.length) parts.push(`learning for: ${profile.goals.join(', ')}`);
+  if (r?.level.length) parts.push(`level: ${r.level.join(', ')}`);
+  if (r?.style.length) parts.push(`likes explanations with: ${r.style.join(', ')}`);
+  if (profile.curiosities.length) parts.push(`curious about: ${profile.curiosities.join(', ')}`);
+  if (ctx.talkTopics?.length) parts.push(`talked about: ${ctx.talkTopics.join(', ')}`);
+  if (ctx.signalTopics?.length) parts.push(`opened stories on: ${ctx.signalTopics.join(', ')}`);
+  return parts.join('; ');
 }
 
 const relatedSchema = z.object({ topics: z.array(z.object({ topic: z.string().trim().min(2).max(60), because: z.string().trim().max(80).default('') })).min(1).max(8) });
 
-async function newsFor(topic: string, services: IssueServices, max = 4): Promise<Source[]> {
+export async function newsFor(topic: string, services: IssueServices, max = 4): Promise<Source[]> {
   try {
     const { sources, origin } = await services.search.search(`latest ${topic} news`, { topic: 'news', days: 3, max });
     return origin === 'demo' ? [] : sources;
@@ -293,10 +308,11 @@ async function newsFor(topic: string, services: IssueServices, max = 4): Promise
 }
 
 /** Adjacent topics the reader would probably enjoy, each tied to the interest it comes from. */
-async function relatedTopics(profile: Profile, llm: LlmService): Promise<{ topic: string; because: string }[]> {
-  if (!profile.interests.length) return [];
+async function relatedTopics(profile: Profile, llm: LlmService, hints = ''): Promise<{ topic: string; because: string }[]> {
+  if (!profile.interests.length && !hints) return [];
+  const about = profile.interests.length ? `The reader follows: ${profile.interests.join(', ')}` : `The reader follows nothing yet. What they told us: ${hints}. Suggest topics that fit that; set "because" to "your answers".`;
   const { data } = await llm.completeJson(
-    { system: RELATED_TOPICS_PROMPT, messages: [{ role: 'user', content: `The reader follows: ${profile.interests.join(', ')}` }], temperature: 0.8, maxOutputTokens: 500, timeoutMs: 8000 },
+    { system: RELATED_TOPICS_PROMPT, messages: [{ role: 'user', content: about }], temperature: 0.8, maxOutputTokens: 500, timeoutMs: 8000 },
     relatedSchema.nullable(),
     () => null,
   );
@@ -369,7 +385,15 @@ export async function draftIssue(profile: Profile, services: IssueServices, ctx:
     if (!sources.length) return demo();
     leadSources = sources.slice(0, 1);
     leadLine = "TODAY'S TOP STORY (the reader is new; no interests known yet):";
-    for (const src of sources.slice(1, MAX_STORIES + 1)) addItem('', [src]);
+    for (const src of sources.slice(1, FEATURED + 1)) addItem('', [src]);
+    // What they told us (goals, curiosities, what they opened or talked about) picks a few more,
+    // so "Also in this issue" speaks to them even before they follow anything.
+    const hints = readerHints(profile, ctx);
+    if (hints) {
+      const picks = (await relatedTopics(profile, services.llm, hints)).slice(0, 3);
+      const picked = await Promise.all(picks.map(async (r) => ({ ...r, sources: await newsFor(r.topic, services, 2) })));
+      for (const n of picked) addItem(n.topic, n.sources.slice(0, 1), 'your answers');
+    }
   } else {
     const news = await Promise.all(interests.map(async (topic) => ({ topic, sources: await newsFor(topic, services) })));
     const leadNews = news.find((n) => n.sources.length);
@@ -492,7 +516,8 @@ async function recentTalkTopics(user: UserDoc): Promise<string[]> {
 }
 
 async function buildIssue(user: UserDoc, date: string, services: IssueServices): Promise<Issue> {
-  const drafts = await draftIssue(userProfile(user), services, { talkTopics: await recentTalkTopics(user) });
+  const signalTopics = [...(user.interestSignals ?? [])].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 3).map((s) => s.topic);
+  const drafts = await draftIssue(userProfile(user), services, { talkTopics: await recentTalkTopics(user), signalTopics });
   // Someone else may have finished first while the model was writing.
   const existing = await loadIssue(user._id, date);
   if (existing) return existing;
@@ -609,7 +634,7 @@ export async function todayIfMade(user: UserDoc, date: string): Promise<Issue | 
  * After a talk the reader cared about: find news on the topic and, if there is any, add a short
  * story deck to today's issue so it shows on Home under that interest. Returns the deck id or null.
  */
-export async function addTopicStory(user: UserDoc, topic: string, date: string, services: IssueServices): Promise<string | null> {
+export async function addTopicStory(user: UserDoc, topic: string, date: string, services: IssueServices, tag = 'from your talk'): Promise<string | null> {
   if (services.llm.demoMode) return null;
   const issue = await IssueModel.findOne({ userId: user._id, date });
   if (!issue) return null;
@@ -631,7 +656,7 @@ export async function addTopicStory(user: UserDoc, topic: string, date: string, 
   );
   const story = data ? assembleStories(data, [item])[0] : undefined;
   if (!story) return null;
-  const deck = await saveDeck(user._id, issue.no, 'story', 'from your talk', story, provider, date);
+  const deck = await saveDeck(user._id, issue.no, 'story', tag, story, provider, date);
   await IssueModel.updateOne({ _id: issue._id }, { $push: { storyIds: deck._id }, $pull: { quiet: topic } });
   return deck._id.toString();
 }

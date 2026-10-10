@@ -53,6 +53,8 @@ services:
         value: "false"
       - key: CORS_ORIGIN
         value: http://localhost:8081
+      - key: PUSH_INTERVAL_MIN
+        value: "180"
       - key: LLM_TIMEOUT_MS
         value: "30000"
       - key: SEARCH_CACHE_TTL_HOURS

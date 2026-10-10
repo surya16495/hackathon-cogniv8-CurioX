@@ -21,6 +21,7 @@ import { authRouter } from './routes/auth';
 import { pinsRouter } from './routes/pins';
 import { signalsRouter } from './routes/signals';
 import { decksRouter, issuesRouter, talkRouter } from './routes/issues';
+import { pushRouter } from './routes/push';
 
 export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SECRET?: string }, services: Services): Express {
   const app = express();
@@ -69,6 +70,7 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SE
   app.use('/api/issues', deviceSession, issuesRouter(services));
   app.use('/api/decks', deviceSession, decksRouter(services));
   app.use('/api/talk', deviceSession, talkRouter(services));
+  app.use('/api/push', deviceSession, pushRouter(services));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

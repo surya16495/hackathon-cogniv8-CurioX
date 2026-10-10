@@ -121,6 +121,9 @@ Speech-to-text for voice mode (Groq Whisper). The body is the **raw audio file**
 - `POST /api/auth/signup` `{ name, email, password (≥6) }` → 201 `{ token, account, session }`. The device's anonymous user becomes the account, so the reader card, issues and pins made before signing up are kept. A device that already has an account creates a new user. Duplicate email → 400.
 - `POST /api/auth/signin` `{ email, password }` → `{ token, account, session }`; wrong credentials → 401.
 - `GET /api/auth/me` → `{ account: { name, email } | null }`.
+- `GET /api/push` → `{ tokens, topics, lastCheckedAt }`: phones registered for push and the topics watched (interests, or what the reader has shown interest in).
+- `POST /api/push/token` `{ token: "ExponentPushToken[…]", platform? }` → the same status. Idempotent. `DELETE /api/push/token` forgets a phone.
+- `POST /api/push/check` → status plus `sent: [{ topic, title, deckId }]`: looks for fresh news on the watched topics right now; anything new becomes a story in today's issue (when today's issue exists) and a notification on every registered phone. The server also runs this for every registered reader every `PUSH_INTERVAL_MIN` minutes (default 180).
 - `PUT /api/auth/account` `{ name?, avatar? }` → the session. Works with or without an account. `avatar` is a `data:image/jpeg|png|webp;base64,…` URL of at most 48 KB, or `null` to remove it. The session carries `name` and `avatar` for the profile page and the Home masthead.
 - `POST /api/session` now includes `account`.
 - Pins are saved per user (per account once signed in, per device before): `GET /api/pins` → `{ pins: PinDto[] }`, `PUT /api/pins` (one `PinDto`, upsert) → 204, `DELETE /api/pins/:id` → 204.

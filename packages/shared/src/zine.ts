@@ -157,6 +157,20 @@ export interface Issue {
   discover: boolean;
 }
 
+/** POST /api/push/token: this phone's Expo push token, so updates on what the reader follows can be sent to it. */
+export const pushTokenSchema = z.object({ token: z.string().regex(/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]{8,}\]$/), platform: z.enum(['ios', 'android']).optional() }).strict();
+export interface PushStatus {
+  /** Push tokens registered for this reader (all their phones). */
+  tokens: number;
+  /** Topics that are watched for updates: interests, or what the reader has shown interest in. */
+  topics: string[];
+  lastCheckedAt: string | null;
+}
+/** POST /api/push/check: look for fresh news on the watched topics now and send what is new. */
+export interface PushCheckResponse extends PushStatus {
+  sent: { topic: string; title: string; deckId: string | null }[];
+}
+
 /** POST /api/signals: something the reader did that hints at an interest. */
 export const SIGNAL_KINDS = ['read', 'ask', 'talk'] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];

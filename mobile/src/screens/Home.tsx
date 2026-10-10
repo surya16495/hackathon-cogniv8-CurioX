@@ -144,7 +144,8 @@ export function Home(p: HomeProps) {
   const own = rest.filter((d) => !d.relatedTo);
   const byTopic = [...new Set(own.map((d) => d.topic))].map((t) => ({ t, list: own.filter((d) => d.topic === t) }));
   const fromTalks = rest.filter((d) => d.relatedTo === 'your talks');
-  const related = rest.filter((d) => d.relatedTo && d.relatedTo !== 'your talks');
+  const picked = rest.filter((d) => d.relatedTo === 'your answers');
+  const related = rest.filter((d) => d.relatedTo && d.relatedTo !== 'your talks' && d.relatedTo !== 'your answers');
   const quiet = issue?.quiet ?? [];
   const loading = !issue && (p.status === 'loading' || p.status === 'slow' || p.status === 'idle');
   const cardW = width - 40;
@@ -244,7 +245,7 @@ export function Home(p: HomeProps) {
               ) : (
                 <>
                   {byTopic.map(({ t, list }, gi) => (
-                    <Group key={t} title={topicName(t)} delay={200 + gi * 60}>
+                    <Group key={t || 'top'} title={t ? topicName(t) : 'More of today'} delay={200 + gi * 60}>
                       {list.map((d, i) => (
                         <StoryStrip key={d.id} d={d} index={i} read={p.isRead(d.id)} fresh={p.fresh === d.id} onPress={() => p.onOpenDeck(d.id)} />
                       ))}
@@ -253,6 +254,13 @@ export function Home(p: HomeProps) {
                   {fromTalks.length > 0 && (
                     <Group title="From your talks" delay={260}>
                       {fromTalks.map((d, i) => (
+                        <StoryStrip key={d.id} d={d} index={i} read={p.isRead(d.id)} fresh={p.fresh === d.id} onPress={() => p.onOpenDeck(d.id)} />
+                      ))}
+                    </Group>
+                  )}
+                  {picked.length > 0 && (
+                    <Group title="Picked from your answers" delay={290}>
+                      {picked.map((d, i) => (
                         <StoryStrip key={d.id} d={d} index={i} read={p.isRead(d.id)} fresh={p.fresh === d.id} onPress={() => p.onOpenDeck(d.id)} />
                       ))}
                     </Group>
@@ -275,7 +283,8 @@ export function Home(p: HomeProps) {
                     </View>
                   )}
                   {rest.length === 0 && featured.length > 0 && <Note>everything new today is in the cards above</Note>}
-                  {byTopic.length + related.length > 0 && <Note arrow>sorted by what you follow</Note>}
+                  {issue.discover && picked.length > 0 && <Note arrow>picked from your five answers: open what you like and CurioX learns</Note>}
+                  {!issue.discover && byTopic.length + related.length > 0 && <Note arrow>sorted by what you follow</Note>}
                 </>
               )}
             </View>

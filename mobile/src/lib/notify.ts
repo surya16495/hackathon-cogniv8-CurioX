@@ -1,5 +1,5 @@
-// The top update as a notification: "Issue No. 14 is out · <lead title>", once per issue per device.
-// Local notifications only (no push server), which is all Expo Go allows; tapping one opens the deck.
+// The phone's notifications: today's top update when the issue loads (local), and updates on what
+// the reader follows sent by the server (push, through Expo). Tapping one opens the deck.
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { KEYS, storage } from './storage';
@@ -60,13 +60,37 @@ export async function notifyIssue(opts: { key: string; no: number; title: string
   }
 }
 
-/** Call `onOpen(deckId)` when the reader taps an issue notification. Returns a cleanup. */
-export function onNotificationOpen(onOpen: (deckId: string) => void): () => void {
+/**
+ * This phone's Expo push token, once notifications are allowed. Needs the EAS project id in
+ * app.json (written by `eas build:configure`); without it, or on web / Android Expo Go, null.
+ */
+export async function pushToken(): Promise<string | null> {
+  const n = load();
+  if (!n) return null;
+  const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
+  const projectId = extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId) return null;
+  if (!(await allowed(n))) return null;
+  try {
+    if (Platform.OS === 'android') {
+      await n.setNotificationChannelAsync('issues', { name: "Today's issue", importance: n.AndroidImportance.DEFAULT });
+    }
+    return (await n.getExpoPushTokenAsync({ projectId })).data;
+  } catch {
+    return null;
+  }
+}
+
+/** Call `onOpen` with what the tapped notification carries (a deck id, or just a topic). Returns a cleanup. */
+export function onNotificationOpen(onOpen: (data: { deckId?: string; topic?: string }) => void): () => void {
   const n = load();
   if (!n) return () => undefined;
   const handle = (r: { notification: { request: { content: { data?: Record<string, unknown> } } } } | null) => {
-    const id = r?.notification.request.content.data?.deckId;
-    if (typeof id === 'string') onOpen(id);
+    const data = r?.notification.request.content.data;
+    if (!data) return;
+    const deckId = typeof data.deckId === 'string' ? data.deckId : undefined;
+    const topic = typeof data.topic === 'string' ? data.topic : undefined;
+    if (deckId || topic) onOpen({ deckId, topic });
   };
   const sub = n.addNotificationResponseReceivedListener(handle);
   // The app may have been opened by the notification itself.
