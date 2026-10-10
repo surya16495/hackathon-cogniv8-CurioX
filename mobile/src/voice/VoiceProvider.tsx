@@ -6,7 +6,7 @@ import { AppState, Platform } from 'react-native';
 import { HELP_TEXT, parseCommand, type Command, type ScreenId } from '@curiox/shared';
 import { api } from '../api/client';
 import { useSession } from '../hooks/useSession';
-import { useRecorderListener } from './recorder';
+import { useRecorderListener, warmUpRecorder } from './recorder';
 import { browserRecognitionSupported, listenWithBrowser, VoiceInputError, type ListenHandle } from './stt-browser';
 import { speak, stopSpeaking, type SpeechStyle } from './tts';
 
@@ -40,6 +40,8 @@ interface VoiceContextValue {
   setHelpOpen: (open: boolean) => void;
   /** quiet: switch on without saying anything (the caller is about to speak). */
   enable: (opts?: { quiet?: boolean }) => void;
+  /** Ask for the microphone now (before any speech), so the permission dialog never interrupts a turn. */
+  prepare: () => Promise<void>;
   /** How the voice speaks (rate, pitch), set per tone. */
   setSpeechStyle: (style: SpeechStyle) => void;
   disable: () => void;
@@ -241,7 +243,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         setInterim('');
         set('idle');
         setError(err instanceof Error ? err.message : 'Voice input failed.');
-        if (err instanceof VoiceInputError && err.code === 'failed') void say("Sorry, I couldn't catch that. Please try again.");
+        if (err instanceof VoiceInputError && err.code === 'failed') void say("Sorry, I couldn't catch that. Please try again.", { listenAfter: top()?.continuous ?? false });
       });
   }, [engine, handleSpeech, lang, recorderListen, say, transcribe]);
   listenFn.current = listen;
@@ -318,16 +320,33 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     listen();
   }, [enable, listen]);
 
-  // Stop talking and listening when the app goes to the background.
+  // Stop talking and listening when the app goes to the background. Android also reports
+  // "background" while a permission dialog is up, so wait a moment and check it is still away.
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const sub = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') {
+      clearTimeout(timer);
+      if (state === 'active') return;
+      timer = setTimeout(() => {
+        if (AppState.currentState === 'active') return;
         stopAll();
         if (enabledRef.current) set('idle');
-      }
+      }, 1500);
     });
-    return () => sub.remove();
+    return () => {
+      clearTimeout(timer);
+      sub.remove();
+    };
   }, [stopAll]);
+
+  const prepare = useCallback(async () => {
+    if (engine !== 'recorder') return;
+    try {
+      await warmUpRecorder();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Microphone access is off.');
+    }
+  }, [engine]);
 
   useEffect(() => () => stopAll(), [stopAll]);
 
@@ -379,6 +398,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       screen,
       setHelpOpen,
       enable,
+      prepare,
       setSpeechStyle,
       disable,
       toggle,
@@ -388,7 +408,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       register,
       announce,
     }),
-    [enabled, needsTap, status, interim, error, canListen, helpOpen, screen, enable, setSpeechStyle, disable, toggle, micPress, say, setThinking, register, announce],
+    [enabled, needsTap, status, interim, error, canListen, helpOpen, screen, enable, prepare, setSpeechStyle, disable, toggle, micPress, say, setThinking, register, announce],
   );
 
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;

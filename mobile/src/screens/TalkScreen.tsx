@@ -264,11 +264,11 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
         openedWith.current = openWith.key;
         greeted.current = true;
         v.enable({ quiet: true });
-        void startWith(openWith.topic, openWith.title);
+        void v.prepare().then(() => startWith(openWith.topic, openWith.title));
       } else if (!greeted.current && phaseRef.current === 'idle') {
         greeted.current = true;
         v.enable({ quiet: true });
-        void start();
+        void v.prepare().then(() => start());
       }
     } else {
       run.current++;
@@ -390,7 +390,12 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
 
         <View style={{ alignSelf: 'stretch', gap: 8, alignItems: 'center', paddingTop: 2, paddingHorizontal: 20, paddingBottom: 8 }}>
           {phase === 'done' && points.length > 0 && !summaryDeckId && !summary && <Btn label={stapling ? 'Stapling…' : 'Staple into a deck'} icon="clip" disabled={stapling} onPress={() => void staple()} />}
-          {!voice.canListen && (
+          {!!voice.error && (
+            <Text style={{ fontFamily: fonts.body, fontSize: 13.5, lineHeight: 18, color: g.onGround2, textAlign: 'center' }} accessibilityLiveRegion="polite">
+              {voice.error}
+            </Text>
+          )}
+          {(!voice.canListen || !!voice.error) && (
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, paddingRight: 5, paddingLeft: 16, borderRadius: 14, backgroundColor: g.strip, boxShadow: g.sh }}>
               <TextInput value={typed} onChangeText={setTyped} placeholder="Type to talk" placeholderTextColor={paper.ink2} onSubmitEditing={send} returnKeyType="send" style={{ flex: 1, fontFamily: fonts.body, fontSize: 16, color: paper.ink, paddingVertical: 10 }} />
               <IconBtn name="up" label="Send" color={paper.ink} onPress={send} />

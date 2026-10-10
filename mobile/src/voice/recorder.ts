@@ -15,6 +15,12 @@ export interface RecorderListenOptions {
   noSpeechMs?: number;
 }
 
+/** Ask for microphone permission ahead of time; throws with a readable message when refused. */
+export async function warmUpRecorder(): Promise<void> {
+  const perm = await requestRecordingPermissionsAsync();
+  if (!perm.granted) throw new VoiceInputError('not-allowed', 'Microphone access is off. Turn it on for CurioX in your phone’s Settings.');
+}
+
 export function useRecorderListener() {
   const recorder = useAudioRecorder(OPTIONS);
   // One recording at a time: a new listen waits for the previous one to release the mic.

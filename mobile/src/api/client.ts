@@ -163,15 +163,18 @@ export const api = {
 
   /** Server speech-to-text. `audio` is a recorded file (native) or Blob (web). */
   async transcribe(audio: Blob | { uri: string; type: string }, lang: string): Promise<string> {
-    let body: Blob | import('expo-file-system').File;
+    let body: Blob | ArrayBuffer;
     let type: string;
     if (audio instanceof Blob) {
       body = audio;
       type = audio.type || 'audio/webm';
     } else {
+      // Read the whole clip into memory and send it as bytes: a streamed File body is not
+      // reliable in release builds, and a clip is a few hundred kilobytes at most.
       const { File } = await import('expo-file-system');
-      body = new File(audio.uri);
+      body = await new File(audio.uri).arrayBuffer();
       type = audio.type;
+      if (body.byteLength < 512) throw new ApiError(0, 'EMPTY_AUDIO', 'The recording was empty.');
     }
     await loadStorage();
     let res: Awaited<ReturnType<typeof fetch>>;
