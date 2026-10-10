@@ -93,6 +93,15 @@ describe('onboarding: reader card', () => {
     expect(res2.body.questions[0].options[2]).toBe('I watch every match');
   });
 
+  it('saves a card with one level per interest', async () => {
+    const { app } = makeApp();
+    const c = client(app);
+    const res = await c.post('/api/onboarding/complete').send({ reader: { interests: ['Cricket', 'Space'], level: ['Cricket: I could teach it', 'Space: Just curious'], goals: [], style: [], tone: [], curious: [] } });
+    expect(res.status).toBe(200);
+    expect(res.body.profile.knowledgeLevels).toEqual([{ topic: 'Cricket', level: 'advanced' }, { topic: 'Space', level: 'beginner' }]);
+    expect(res.body.profile.reader.level).toHaveLength(2);
+  });
+
   it('rejects an empty interest list', async () => {
     const { app } = makeApp();
     expect((await client(app).post('/api/onboarding/tailor').send({ interests: [] })).status).toBe(400);

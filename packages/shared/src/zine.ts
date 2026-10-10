@@ -26,7 +26,8 @@ export interface ReaderQuestion {
 const chip = z.string().trim().min(1).max(120);
 export const readerCardSchema = z.object({
   interests: z.array(chip).max(12).default([]),
-  level: z.array(chip).max(1).default([]),
+  /** One answer, or one per interest as "Cricket: I watch every match" (up to four). */
+  level: z.array(chip).max(4).default([]),
   goals: z.array(chip).max(8).default([]),
   style: z.array(chip).max(8).default([]),
   tone: z.array(chip).max(1).default([]),
