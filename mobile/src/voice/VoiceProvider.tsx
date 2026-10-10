@@ -10,7 +10,7 @@ import { useRecorderListener } from './recorder';
 import { browserRecognitionSupported, listenWithBrowser, VoiceInputError, type ListenHandle } from './stt-browser';
 import { speak, stopSpeaking, type SpeechStyle } from './tts';
 
-export type VoiceStatus = 'off' | 'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking';
+export type VoiceStatus = 'off' | 'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking' | 'paused';
 
 export interface VoiceScreenConfig {
   screen: ScreenId;
@@ -24,6 +24,8 @@ export interface VoiceScreenConfig {
   quizOptions?: string[];
   /** A destructive action is waiting for yes/no. */
   confirming?: boolean;
+  /** Keep listening after silence instead of waiting for a tap (Talk). */
+  continuous?: boolean;
 }
 
 interface VoiceContextValue {
@@ -216,9 +218,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         listenRef.current = null;
         setInterim('');
         if (!alternatives.length) {
-          // Nothing heard: try once more, then wait for a tap.
+          // Nothing heard. A continuous screen (Talk) keeps listening by itself, with a short
+          // breath between tries; other screens try once more, then wait for a tap.
           set('idle');
-          if (enabledRef.current && ++silentTries.current < 2) setTimeout(() => listenFn.current(), 250);
+          silentTries.current++;
+          const keepGoing = top()?.continuous ? true : silentTries.current < 2;
+          if (enabledRef.current && keepGoing) {
+            const wait = silentTries.current < 2 ? 250 : 1200;
+            followUp.current = setTimeout(() => {
+              if (enabledRef.current && !thinkingRef.current && statusRef.current === 'idle') listenFn.current();
+            }, wait);
+          }
           return;
         }
         silentTries.current = 0;
@@ -286,14 +296,21 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => (enabledRef.current && !needsTapRef.current ? disable() : enable()), [disable, enable]);
   // Voice is never remembered between launches: it switches on only in Talk, while Talk is open.
 
+  /**
+   * The blob. While listening: pause (nothing more is heard until the next press). While paused
+   * or idle: listen. While speaking or thinking: interrupt and listen.
+   */
   const micPress = useCallback(() => {
     if (!enabledRef.current || needsTapRef.current) return enable();
     const s = statusRef.current;
-    if (s === 'listening') {
-      listenRef.current?.stop(); // use what was said so far
+    if (s === 'listening' || s === 'transcribing') {
+      clearTimeout(followUp.current);
+      listenRef.current?.abort();
+      listenRef.current = null;
+      setInterim('');
+      set('paused');
       return;
     }
-    if (s === 'transcribing') return;
     sayGen.current++;
     stopSpeaking();
     silentTries.current = 0;

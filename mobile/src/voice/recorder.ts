@@ -50,24 +50,29 @@ export function useRecorderListener() {
         let sawLevel = false;
         let lastVoice = started;
         let noise = -160;
+        // Some phones report a constant 0 dB (or nothing) for the level: then record fixed windows.
+        let meterBroken = false;
 
         await new Promise<void>((resolve) => {
           const timer = setInterval(() => {
             const now = Date.now();
             const level = recorder.getStatus().metering;
-            if (typeof level === 'number' && Number.isFinite(level)) {
+            if (!meterBroken && typeof level === 'number' && Number.isFinite(level) && level < -1) {
               sawLevel = true;
               // Calibrate on room noise for the first moment, then look for speech above it.
               if (now - started < 400) noise = Math.max(noise, level);
-              else if (level > Math.max(noise + 12, -45)) {
+              else if (level > Math.min(Math.max(noise, -70), -35) + 12) {
                 heard = true;
                 lastVoice = now;
               }
+            } else if (typeof level === 'number' && level >= -1 && now - started > 400) {
+              meterBroken = true;
+              sawLevel = false;
             }
             const silentAfterSpeech = heard && sawLevel && now - lastVoice > silenceMs;
             const nothingSaid = sawLevel && !heard && now - started > noSpeechMs;
             // Without level data (some devices), record a fixed window; a tap ends it sooner.
-            const blindLimit = !sawLevel && now - started > 7000;
+            const blindLimit = !sawLevel && now - started > 6000;
             if (silentAfterSpeech || nothingSaid || blindLimit || now - started > maxMs) finish();
           }, 100);
           const finish = () => {

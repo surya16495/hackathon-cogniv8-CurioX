@@ -19,6 +19,8 @@ export interface ReaderQuestion {
   /** Shows a "write your own" field under the chips. */
   free?: boolean;
   options: string[];
+  /** Level questions are asked per interest: the interest this one is about. */
+  topic?: string;
 }
 
 const chip = z.string().trim().min(1).max(120);

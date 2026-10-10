@@ -94,6 +94,7 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
     screen: 'talk',
     active,
     intro: null,
+    continuous: true,
     onCommand: (cmd) => {
       if (cmd.type === 'staple') return void staple();
       if (cmd.type === 'startOver') return void start();
@@ -289,13 +290,15 @@ export function TalkScreen({ active, tone, onTone, onClose, onStaple, onFinished
       ? `${label ?? ''}Press to start a new talk`
       : !voice.enabled && (phase === 'talking' || phase === 'finishing')
         ? 'Press to carry on'
-        : blobPhase === 'listening'
-        ? 'Listening'
-        : blobPhase === 'thinking'
-          ? 'Thinking'
-          : blobPhase === 'speaking'
-            ? 'Press to interrupt'
-            : `${label ?? ''}${points.length ? 'Press and say more' : 'Press and ask out loud'}`;
+        : s === 'paused'
+          ? 'Paused. Press to carry on'
+          : blobPhase === 'listening'
+            ? 'Listening… press to pause'
+            : blobPhase === 'thinking'
+              ? 'Thinking'
+              : blobPhase === 'speaking'
+                ? 'Press to interrupt'
+                : `${label ?? ''}${points.length ? 'Press and say more' : 'Press and ask out loud'}`;
   // While the talk runs the transcript has the screen; the blob shrinks to the top.
   const compact = transcript.length > 0 || phase === 'done';
   const hasSlips = compact;

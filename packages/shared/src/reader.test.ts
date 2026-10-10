@@ -5,10 +5,17 @@ import { cardSchema } from './zine';
 
 describe('tailorQuestions', () => {
   it('asks about the first interest and offers its own wonderings', () => {
-    const [level, goals, style] = tailorQuestions(['Cricket', 'Space']);
+    const qs = tailorQuestions(['Cricket', 'Space']);
+    const [level, level2] = qs;
+    const goals = qs.find((q) => q.key === 'goals');
+    const style = qs.find((q) => q.key === 'style');
     const curious = { options: wonderings(['Cricket', 'Space']), free: true };
+    expect(qs.map((q) => q.key)).toEqual(['level', 'level', 'goals', 'style', 'tone']);
     expect(level!.q).toBe('How much do you already know about cricket?');
+    expect(level!.topic).toBe('Cricket');
     expect(level!.options).toContain('I watch every match');
+    expect(level2!.q).toBe('How much do you already know about space?');
+    expect(level2!.options).toContain('I follow every launch');
     expect(goals!.options).toContain('Follow matches like a pro');
     expect(goals!.options).toContain('Follow launches and missions');
     expect(style!.options).toContain('Cricket examples');
@@ -19,7 +26,10 @@ describe('tailorQuestions', () => {
 
   it('uses short names and falls back for unknown interests', () => {
     expect(tailorQuestions(['Artificial intelligence'])[0]!.q).toBe('How much do you already know about AI?');
-    const [level, goals, style] = tailorQuestions(['Pottery']);
+    const qs = tailorQuestions(['Pottery']);
+    const [level] = qs;
+    const goals = qs.find((q) => q.key === 'goals');
+    const style = qs.find((q) => q.key === 'style');
     const curious = { options: wonderings(['Pottery']) };
     expect(level!.q).toBe('How much do you already know about pottery?');
     expect(level!.options[2]).toBe('I keep up with it');
@@ -31,7 +41,8 @@ describe('tailorQuestions', () => {
   it('never repeats a chip and keeps at most six goals', () => {
     for (const qs of [tailorQuestions(['Cricket', 'Space', 'Health', 'Music']), tailorQuestions([])]) {
       for (const q of qs) expect(new Set(q.options).size).toBe(q.options.length);
-      expect(qs[1]!.options.length).toBeLessThanOrEqual(6);
+      expect(qs.filter((q) => q.key === 'level').length).toBeLessThanOrEqual(3);
+      expect(qs.find((q) => q.key === 'goals')!.options.length).toBeLessThanOrEqual(6);
     }
   });
 });
@@ -46,6 +57,9 @@ describe('reader card and profile', () => {
     expect(p.explanationStyle).toBe('Analogies, Cricket examples');
     expect(p.tone).toBe('Witty');
     expect(readerFromProfile(p).style).toEqual(['Analogies', 'Cricket examples']);
+    // Levels per interest: an expert in one, a newcomer to the other; a fourth takes the first answer.
+    const q = profileFromReader({ interests: ['Cricket', 'Space', 'Music'], level: ['Cricket: I could teach it', 'Space: Just curious'], goals: [], style: [], tone: [], curious: [] });
+    expect(q.knowledgeLevels).toEqual([{ topic: 'Cricket', level: 'advanced' }, { topic: 'Space', level: 'beginner' }, { topic: 'Music', level: 'advanced' }]);
   });
 
   it('maps level words', () => {

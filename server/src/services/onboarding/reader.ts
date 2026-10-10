@@ -10,12 +10,12 @@ import { TOTAL_STEPS } from './steps';
 
 const chip = z.string().trim().min(1).max(48);
 const qSchema = z.object({ q: z.string().trim().min(6).max(90), options: z.array(chip).min(3).max(7) });
-const tailorSchema = z.object({ level: qSchema, goals: qSchema, style: qSchema, tone: qSchema });
+const tailorSchema = z.object({ levels: z.array(qSchema.extend({ topic: chip })).min(1).max(4), goals: qSchema, style: qSchema, tone: qSchema });
 
 const TAILOR_PROMPT = `You help a friendly learning app (CurioX) get to know a new learner through four quick chip questions, after they picked what they are into. Write ALL FOUR questions so they clearly follow from THOSE interests (name them in the question where natural) and from any answers already given. Never generic, never about a topic they did not pick.
 Reply with JSON only:
-{"level": {"q": string, "options": [4 strings]}, "goals": {"q": string, "options": [5 strings]}, "style": {"q": string, "options": [5 strings]}, "tone": {"q": string, "options": [5 strings]}}
-- level: how much they already know, options from newcomer to expert in the words of that world. Cricket: "Just curious", "I know the basics", "I watch every match", "I could commentate". Several interests: cover them together ("…about cricket and space").
+{"levels": [{"topic": string, "q": string, "options": [4 strings]}], "goals": {"q": string, "options": [5 strings]}, "style": {"q": string, "options": [5 strings]}, "tone": {"q": string, "options": [5 strings]}}
+- levels: ONE entry per interest, in the order given (at most the first three), "topic" exactly as given. Each asks how much they already know about THAT interest alone, options from newcomer to expert in the words of that world. Cricket: "Just curious", "I know the basics", "I watch every match", "I could commentate". Space: "Just curious", "I know the basics", "I follow every launch", "I could teach orbital mechanics".
 - goals: why someone with these interests learns, mixing the interests; if a level is known, fit it (an expert is not "learning the basics").
 - style: how explanations should be built for these interests and that level ("Match examples", "Step by step", "Numbers and charts", "Analogies", "Short and blunt"…).
 - tone: how CurioX should sound, fitting these interests and goals ("Like a commentator", "Calm and clear", "Playful", "Like a coach"…), always including one of: Friendly, Casual, Playful.
@@ -33,8 +33,13 @@ export async function tailor(interests: string[], llm: LlmService, answers: { le
   );
   if (!data) return { questions: fallback, provider: 'demo' };
   const dedupe = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))];
+  let levelIndex = 0;
   const questions = fallback.map((fq) => {
-    const written = data[fq.key as 'level' | 'goals' | 'style' | 'tone'];
+    const written =
+      fq.key === 'level'
+        ? (data.levels.find((l) => l.topic.toLowerCase() === (fq.topic ?? '').toLowerCase()) ?? data.levels[levelIndex++])
+        : data[fq.key as 'goals' | 'style' | 'tone'];
+    if (!written) return fq;
     const options = dedupe(written.options);
     return options.length >= 3 ? { ...fq, q: written.q, options } : fq;
   });

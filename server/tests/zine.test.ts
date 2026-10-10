@@ -57,7 +57,7 @@ function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open
       if (s.includes('"points"')) return pick('talk', { points: [{ h: 'Short answer', say: 'It is all about grip.' }, { h: 'Why', say: 'Wet balls slip.' }], topic: 'dew in cricket', done: false });
       if (s.includes('verdict')) return pick('teach', { verdict: 'got_it', feedback: 'Nailed it.', add: 'mention the toss.' });
       if (s.includes('adjacent topics')) return pick('related', { topics: [{ topic: 'Sports science', because: 'Cricket' }, { topic: 'Rocket engines', because: 'Space' }] });
-      if (s.includes('four quick chip questions')) return pick('tailor', { level: { q: 'How much do you know about pottery?', options: ['Just curious', 'I know the basics', 'I throw pots weekly', 'I could teach a class'] }, goals: { q: 'What are you learning pottery for?', options: ['Sell my pots', 'Make gifts', 'Pure curiosity'] }, style: { q: 'How should I explain pottery?', options: ['Step by step', 'Studio examples', 'Pictures'] }, tone: { q: 'How should I sound?', options: ['Friendly', 'Like a studio mate', 'Calm'] } });
+      if (s.includes('four quick chip questions')) return pick('tailor', { levels: [{ topic: 'Pottery', q: 'How much do you know about pottery?', options: ['Just curious', 'I know the basics', 'I throw pots weekly', 'I could teach a class'] }], goals: { q: 'What are you learning pottery for?', options: ['Sell my pots', 'Make gifts', 'Pure curiosity'] }, style: { q: 'How should I explain pottery?', options: ['Step by step', 'Studio examples', 'Pictures'] }, tone: { q: 'How should I sound?', options: ['Friendly', 'Like a studio mate', 'Calm'] } });
       if (s.includes('Turn this conversation')) return pick('chatdeck', { title: 'Tides', art: 'wave', cards: [{ h: 'Moon pulls', body: 'The moon pulls the sea.', art: 'moon' }, { h: 'Twice a day', body: 'Two bulges.', art: 'wave' }], teach: lead.teach, quiz: [] });
       return '{"needsSearch":false,"query":""}';
     },
@@ -86,7 +86,7 @@ describe('onboarding: reader card', () => {
     expect(res.body.questions[3].options).toContain('Like a studio mate');
     expect(model.completeCalls[0]!.messages[0]!.content).toContain('level: I know the basics');
 
-    const broken = makeApp({ providers: [zineModel({ tailor: { level: {} } })] });
+    const broken = makeApp({ providers: [zineModel({ tailor: { levels: [] } })] });
     const res2 = await client(broken.app).post('/api/onboarding/tailor').send({ interests: ['Cricket'] });
     expect(res2.body.provider).toBe('demo');
     expect(res2.body.questions[0].q).toBe('How much do you already know about cricket?');

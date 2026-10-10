@@ -80,6 +80,30 @@ const BANK: Record<string, TopicBank> = {
 };
 
 export const LEVEL_WORDS = ['Just curious', 'I know the basics', '', 'I could teach it'];
+/** The level is asked for this many interests; the rest take the first answer. */
+export const MAX_LEVEL_TOPICS = 3;
+
+/** Level answers are kept per interest as "Cricket: I watch every match". */
+export const levelEntry = (topic: string, value: string) => `${topic}: ${value}`;
+const topicOfLevel = (entry: string) => (entry.includes(': ') ? entry.slice(0, entry.indexOf(': ')) : '');
+const valueOfLevel = (entry: string) => (entry.includes(': ') ? entry.slice(entry.indexOf(': ') + 2) : entry);
+/** The answer for this interest, or the first answer given (older cards had one for everything). */
+export function levelFor(levels: string[], topic: string): string | undefined {
+  const own = levels.find((l) => topicOfLevel(l).toLowerCase() === topic.toLowerCase());
+  return own ? valueOfLevel(own) : undefined;
+}
+export function anyLevel(levels: string[]): string | undefined {
+  return levels[0] ? valueOfLevel(levels[0]) : undefined;
+}
+export function setLevelFor(levels: string[], topic: string, value: string | undefined): string[] {
+  const rest = levels.filter((l) => topicOfLevel(l).toLowerCase() !== topic.toLowerCase());
+  return value ? [...rest, levelEntry(topic, value)] : rest;
+}
+/** Drop level answers for interests no longer picked. */
+export function levelsFor(levels: string[], interests: string[]): string[] {
+  const keep = new Set(interests.map((i) => i.toLowerCase()));
+  return levels.filter((l) => !topicOfLevel(l) || keep.has(topicOfLevel(l).toLowerCase()));
+}
 
 const unique = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))];
 
@@ -99,21 +123,20 @@ export function interestsQuestion(): ReaderQuestion {
   };
 }
 
-/** Questions 2 to 5 for these interests. Interests outside the bank get the general options. */
+/** The questions after the first: a level question per interest (up to three), then goals, style, tone. */
 export function tailorQuestions(interests: string[]): ReaderQuestion[] {
   const picked = interests.filter(Boolean);
   const first = picked[0];
   const banks = picked.map((t) => BANK[t]).filter((b): b is TopicBank => !!b);
-  const firstBank = first ? BANK[first] : undefined;
-  const about = !first ? 'the things you follow' : topicShort(first);
 
   const goals = unique([BASE_GOALS[0]!, ...roundRobin(banks.map((b) => b.goals), 3), ...BASE_GOALS.slice(1)]).slice(0, 6);
   const style = unique([...BASE_STYLE.slice(0, 3), first ? `${capital(topicShort(first))} examples` : '', ...BASE_STYLE.slice(3)]);
+  const levels: ReaderQuestion[] = (picked.length ? picked.slice(0, MAX_LEVEL_TOPICS) : ['']).map((t) => ({
+    key: 'level', label: 'Level', topic: t || undefined, q: `How much do you already know about ${t ? topicShort(t) : 'the things you follow'}?`, hint: 'Pick one.', multi: false,
+    options: [LEVEL_WORDS[0]!, LEVEL_WORDS[1]!, (t && BANK[t]?.regular) || 'I keep up with it', LEVEL_WORDS[3]!],
+  }));
   return [
-    {
-      key: 'level', label: 'Level', q: `How much do you already know about ${about}?`, hint: 'Pick one.', multi: false,
-      options: [LEVEL_WORDS[0]!, LEVEL_WORDS[1]!, firstBank?.regular ?? 'I keep up with it', LEVEL_WORDS[3]!],
-    },
+    ...levels,
     { key: 'goals', label: 'Learning for', q: 'What are you learning for?', hint: 'Pick as many as you like.', multi: true, options: goals },
     { key: 'style', label: 'Explain with', q: 'How should I explain things?', hint: 'Pick as many as you like.', multi: true, options: style },
     { key: 'tone', label: 'Tone', q: 'How should I sound?', hint: 'Pick one.', multi: false, options: [...TONE_OPTIONS] },
@@ -147,10 +170,13 @@ export function levelFromWords(words: string | undefined): KnowledgeLevel {
 
 /** The profile the prompts use, derived from the reader card. */
 export function profileFromReader(reader: ReaderCard): Profile {
-  const level = levelFromWords(reader.level[0]);
+  const fallback = levelFromWords(anyLevel(reader.level));
   return {
     interests: unique(reader.interests),
-    knowledgeLevels: unique(reader.interests).map((topic) => ({ topic, level })),
+    knowledgeLevels: unique(reader.interests).map((topic) => {
+      const own = levelFor(reader.level, topic);
+      return { topic, level: own ? levelFromWords(own) : fallback };
+    }),
     goals: unique(reader.goals),
     explanationStyle: unique(reader.style).join(', '),
     tone: reader.tone[0] ?? '',

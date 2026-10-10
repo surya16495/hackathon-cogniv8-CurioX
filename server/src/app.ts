@@ -37,9 +37,10 @@ export function createApp(env: Pick<Env, 'CORS_ORIGIN' | 'NODE_ENV'> & { AUTH_SE
     cors({
       origin(origin, cb) {
         // No Origin header: curl, the smoke script, the native app. Allowed.
-        if (!origin || env.CORS_ORIGIN.includes('*') || env.CORS_ORIGIN.includes(origin.replace(/\/$/, ''))) {
-          return cb(null, true);
-        }
+        const clean = origin?.replace(/\/$/, '') ?? '';
+        if (!origin || env.CORS_ORIGIN.includes('*') || env.CORS_ORIGIN.includes(clean)) return cb(null, true);
+        // Outside production, any localhost port: Expo's web preview picks whatever port is free.
+        if (env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(clean)) return cb(null, true);
         cb(new Error(`CORS: origin ${origin} is not allowed`));
       },
       allowedHeaders: ['Content-Type', 'Authorization', DEVICE_ID_HEADER, 'X-Voice-Lang'],

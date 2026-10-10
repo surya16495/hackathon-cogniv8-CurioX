@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   blankReader,
   interestsQuestion,
+  levelFor,
+  levelsFor,
+  setLevelFor,
   tailorQuestions,
   type ReaderCard,
   type ReaderQuestion,
@@ -16,11 +19,20 @@ import { ReaderCardView } from '../components/ReaderCard';
 import { Cut } from '../ui/Art';
 import { Btn, Bump, Ground, IconBtn, Note, Panel, PasteIn, Pill, Pop, SlideIn, T, useReduceMotion } from '../ui/kit';
 
-/** Interests, level, goals, style, tone. What the reader wonders about comes from how they use the app. */
-export const STEPS = 5;
+/** A question's identity across re-tailoring: its key, plus the interest for level questions. */
+const qid = (q: Pick<ReaderQuestion, 'key' | 'topic'>) => `${q.key}|${q.topic ?? ''}`;
+
+/** The chips picked for a question: level answers live per interest. */
+export function valuesOf(q: ReaderQuestion, ans: ReaderCard): string[] {
+  if (q.key === 'level' && q.topic) {
+    const v = levelFor(ans.level, q.topic);
+    return v ? [v] : [];
+  }
+  return ans[q.key];
+}
 
 export function useOnboardFlow(initial?: ReaderCard) {
-  const [step, setStepState] = useState(0); // 0 welcome, 1..5 questions, 6 summary
+  const [step, setStepState] = useState(0); // 0 welcome, 1..n questions, n+1 summary
   const [ans, setAnsState] = useState<ReaderCard>(() => initial ?? blankReader());
   const [tailored, setTailored] = useState<ReaderQuestion[]>(() => tailorQuestions(initial?.interests ?? []));
   const [draft, setDraftState] = useState('');
@@ -29,7 +41,7 @@ export function useOnboardFlow(initial?: ReaderCard) {
   const ansRef = useRef(ans);
   const draftRef = useRef(draft);
   const tailoredRef = useRef(tailored);
-  const visited = useRef(new Set<number>());
+  const visited = useRef(new Set<string>());
   const tailorFor = useRef('');
 
   const setStep = (n: number) => {
@@ -46,8 +58,15 @@ export function useOnboardFlow(initial?: ReaderCard) {
   };
 
   const questions = useMemo(() => [interestsQuestion(), ...tailored], [tailored]);
-  const questionAt = (n: number) => (n >= 1 && n <= STEPS ? [interestsQuestion(), ...tailoredRef.current][n - 1]! : null);
+  const questionAt = (n: number): ReaderQuestion | null => {
+    const all = [interestsQuestion(), ...tailoredRef.current];
+    return n >= 1 && n <= all.length ? all[n - 1]! : null;
+  };
   const q = questionAt(step);
+  const total = questions.length;
+
+  const withValues = (answers: ReaderCard, cur: ReaderQuestion, values: string[]): ReaderCard =>
+    cur.key === 'level' && cur.topic ? { ...answers, level: setLevelFor(answers.level, cur.topic, values[0]) } : { ...answers, [cur.key]: values };
 
   /** Ask the server to write the questions not yet reached, for these interests and answers. */
   const retailor = (interests: string[], answers: ReaderCard, interestsChanged: boolean) => {
@@ -57,8 +76,9 @@ export function useOnboardFlow(initial?: ReaderCard) {
       tailoredRef.current = local;
       setTailored(local);
       // Keep answers that still make sense: anything still offered, or typed by the reader.
-      const next = { ...ansRef.current };
+      const next = { ...ansRef.current, level: levelsFor(ansRef.current.level, interests) };
       for (const lq of local) {
+        if (lq.key === 'level') continue;
         const was = old.find((x) => x.key === lq.key)?.options ?? [];
         next[lq.key] = next[lq.key].filter((v) => lq.options.includes(v) || !was.includes(v));
       }
@@ -75,7 +95,7 @@ export function useOnboardFlow(initial?: ReaderCard) {
       .then((res) => {
         if (tailorFor.current !== key) return;
         // Only replace questions the reader has not reached yet.
-        const merged = tailoredRef.current.map((o, i) => (visited.current.has(i + 2) ? o : res.questions[i] ?? o));
+        const merged = tailoredRef.current.map((o) => (visited.current.has(qid(o)) ? o : res.questions.find((w) => qid(w) === qid(o)) ?? o));
         tailoredRef.current = merged;
         setTailored(merged);
       })
@@ -84,15 +104,16 @@ export function useOnboardFlow(initial?: ReaderCard) {
 
   const go = (to: number) => {
     setDraft('');
-    if (to >= 1 && to <= STEPS) visited.current.add(to);
+    const target = questionAt(to);
+    if (target) visited.current.add(qid(target));
     setStep(to);
   };
 
   const next = () => {
     const cur = questionAt(stepRef.current);
     if (!cur) return go(stepRef.current + 1);
-    const values = withDraft(cur, ansRef.current[cur.key], draftRef.current);
-    const answers = { ...ansRef.current, [cur.key]: values };
+    const values = withDraft(cur, valuesOf(cur, ansRef.current), draftRef.current);
+    const answers = withValues(ansRef.current, cur, values);
     setAns(answers);
     retailor(answers.interests, answers, cur.key === 'interests');
     go(stepRef.current + 1);
@@ -101,7 +122,7 @@ export function useOnboardFlow(initial?: ReaderCard) {
   const skip = () => {
     const cur = questionAt(stepRef.current);
     if (!cur) return go(stepRef.current + 1);
-    const answers = { ...ansRef.current, [cur.key]: [] };
+    const answers = withValues(ansRef.current, cur, []);
     setAns(answers);
     retailor(answers.interests, answers, cur.key === 'interests');
     go(stepRef.current + 1);
@@ -109,11 +130,11 @@ export function useOnboardFlow(initial?: ReaderCard) {
 
   const set = (values: string[]) => {
     const cur = questionAt(stepRef.current);
-    if (cur) setAns({ ...ansRef.current, [cur.key]: values });
+    if (cur) setAns(withValues(ansRef.current, cur, values));
   };
-  const canNext = !!q && (ans[q.key].length > 0 || draft.trim().length > 0);
+  const canNext = !!q && (valuesOf(q, ans).length > 0 || draft.trim().length > 0);
 
-  return { step, q, ans, questions, draft, setDraft, set, next, skip, back: () => go(Math.max(0, stepRef.current - 1)), go, canNext, start: () => go(1) };
+  return { step, q, ans, questions, total, draft, setDraft, set, next, skip, back: () => go(Math.max(0, stepRef.current - 1)), go, canNext, start: () => go(1) };
 }
 
 /** The bulb on the welcome page sways gently, like it is hanging from the panel. */
@@ -137,7 +158,7 @@ function Sway({ children }: { children: React.ReactNode }) {
 export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<typeof useOnboardFlow>; saving?: boolean; error?: string | null; onDone: (r: ReaderCard) => void }) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
-  const { step, q, ans } = flow;
+  const { step, q, ans, total } = flow;
   // Which way the next page comes from: forward slides in from the right, back from the left.
   const lastStep = useRef(step);
   const dir = step >= lastStep.current ? 1 : -1;
@@ -174,7 +195,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
           <PasteIn delay={260} style={{ marginTop: 22, gap: 10 }}>
             <Btn label="Start" wide onPress={flow.start} />
             <T v="hint" muted>
-              Five quick questions. No sign-up.
+              A few quick questions. No sign-up.
             </T>
           </PasteIn>
         </View>
@@ -182,7 +203,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
     );
   }
 
-  if (step > STEPS || !q) {
+  if (step > total || !q) {
     return (
       <Ground>
         <ScrollView ref={scroll} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 18) }}>
@@ -217,7 +238,7 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: -12, marginRight: -10, marginBottom: 18 }}>
             <IconBtn name="back" label="Back" onPress={flow.back} />
             <Bump on={step > 0}>
-              <Pill label={`${step}/${STEPS}`} />
+              <Pill label={`${step}/${total}`} />
             </Bump>
             <Btn label="Skip" variant="text" onPress={flow.skip} />
           </View>
@@ -229,11 +250,11 @@ export function Onboard({ flow, saving, error, onDone }: { flow: ReturnType<type
               {q.hint}
             </T>
             <View style={{ marginTop: 20 }}>
-              <ChipGroup key={q.key} q={q} values={ans[q.key]} onChange={flow.set} onDraft={flow.setDraft} onFreeSubmit={() => flow.canNext && flow.next()} />
+              <ChipGroup key={qid(q)} q={q} values={valuesOf(q, ans)} onChange={flow.set} onDraft={flow.setDraft} onFreeSubmit={() => flow.canNext && flow.next()} />
             </View>
           </SlideIn>
           <View style={{ flex: 1, minHeight: 24 }} />
-          <Btn label={step === STEPS ? 'Finish' : 'Next'} wide disabled={!flow.canNext} onPress={flow.next} />
+          <Btn label={step === total ? 'Finish' : 'Next'} wide disabled={!flow.canNext} onPress={flow.next} />
         </ScrollView>
       </KeyboardAvoidingView>
     </Ground>

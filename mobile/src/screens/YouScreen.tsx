@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { READER_KEYS, interestsQuestion, tailorQuestions, topicName, type Account, type ReaderCard, type ReaderKey } from '@curiox/shared';
+import { READER_KEYS, interestsQuestion, levelFor, setLevelFor, tailorQuestions, topicName, type Account, type ReaderCard, type ReaderKey } from '@curiox/shared';
 import { ChipGroup } from '../components/ChipGroup';
 import { ReaderCardView } from '../components/ReaderCard';
 import { Icon } from '../ui/Icon';
@@ -171,6 +171,21 @@ export function YouScreen(p: YouProps) {
             openKey={open}
             onRow={(k) => setOpen(open === k ? null : k)}
             renderEditor={(k) => {
+              if (k === 'level') {
+                // One row of chips per interest.
+                return (
+                  <View style={{ gap: 16 }}>
+                    {questions
+                      .filter((x) => x.key === 'level')
+                      .map((q) => (
+                        <View key={q.topic ?? ''} style={{ gap: 8 }}>
+                          {!!q.topic && <Text style={[type.typed, { color: paper.ink2 }]}>{topicName(q.topic)}</Text>}
+                          <ChipGroup q={q} values={q.topic ? (levelFor(p.reader.level, q.topic) ? [levelFor(p.reader.level, q.topic)!] : []) : p.reader.level} onChange={(v) => p.onChange({ ...p.reader, level: q.topic ? setLevelFor(p.reader.level, q.topic, v[0]) : v })} />
+                        </View>
+                      ))}
+                  </View>
+                );
+              }
               const q = questions.find((x) => x.key === k)!;
               return <ChipGroup q={q} values={p.reader[k]} onChange={(v) => p.onChange({ ...p.reader, [k]: v })} />;
             }}
