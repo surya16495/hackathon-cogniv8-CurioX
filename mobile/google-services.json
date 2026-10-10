@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "344089454056",
+    "project_id": "curiox-4397b",
+    "storage_bucket": "curiox-4397b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:344089454056:android:6ed2420b3b109e5764705d",
+        "android_client_info": {
+          "package_name": "com.cogniv8.curiox"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_pXDyrGdLc3A1mKhDf8luM9zyk8TYq2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
