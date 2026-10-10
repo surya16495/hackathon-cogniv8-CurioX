@@ -107,6 +107,8 @@ Notes: voice input on phones needs the server's `GROQ_API_KEY` (Whisper). On iPh
 
 ## Deployment
 
+**Android app (public download):** https://github.com/surya16495/hackathon-cogniv8-CurioX/releases/latest/download/CurioX.apk. Open it on an Android phone, allow "install from this source", install. iPhones use Expo Go.
+
 The full, click-by-click guide is [docs/DEPLOY.md](docs/DEPLOY.md). The commands:
 
 ```bash

@@ -58,6 +58,20 @@ npx eas-cli@latest build --platform android --profile preview
 - The `preview` profile makes an installable APK (not an AAB), which is what judges can sideload.
 - To rebuild after a code change, run the last command again.
 
+### Publish the APK as a public link (GitHub release)
+
+The EAS artifact URL expires after about 30 days and changes on every build. Attach the APK to a GitHub release instead; the links below never change and need no login.
+
+```bash
+curl -L -o ~/Downloads/CurioX.apk "<Application Archive URL from: cd mobile && npx eas-cli@latest build:list --platform android --limit 1>"
+gh release create v0.1.0 ~/Downloads/CurioX.apk --title "CurioX v0.1.0 (Android APK)" --notes "Android build for judges."
+```
+
+- Release page: https://github.com/surya16495/hackathon-cogniv8-CurioX/releases/latest
+- Direct download, always the newest release: https://github.com/surya16495/hackathon-cogniv8-CurioX/releases/latest/download/CurioX.apk
+- After a rebuild with the same app version, replace the file on the existing release: `gh release upload v0.1.0 ~/Downloads/CurioX.apk --clobber`. If `version` in `mobile/app.json` changed, create a new release with a new tag (for example `v0.2.0`) and the `latest` links follow it.
+- Needs the GitHub CLI (`brew install gh`, then `gh auth login`). The same can be done on github.com: Releases, Draft a new release, tag `v0.1.0`, drag the APK into attachments, Publish.
+
 ## 5. iPhone
 
 Expo Go: run `npm run dev:mobile` with `EXPO_PUBLIC_API_URL` set in `mobile/.env` (step 3) and scan the QR code. Over a different network, use `npx expo start --tunnel` from `mobile/`. An installable iOS build needs a paid Apple Developer account, so Expo Go is the plan for judging.
