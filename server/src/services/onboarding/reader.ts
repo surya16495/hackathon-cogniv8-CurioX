@@ -1,52 +1,43 @@
-// The chip onboarding: questions 2 to 6 follow the interests picked in question 1,
-// and the finished reader card becomes the profile in one save.
+// The chip onboarding: questions 2 to 5 are written for the interests picked in question 1 (and
+// the answers given since), and the finished reader card becomes the profile in one save.
 import { z } from 'zod';
-import { INTEREST_OPTIONS, profileFromReader, tailorQuestions, type ReaderCard, type TailorResponse } from '@curiox/shared';
+import { profileFromReader, tailorQuestions, type ReaderCard, type TailorResponse } from '@curiox/shared';
 import { User, type UserDoc } from '../../db/models';
 import { notFound } from '../../utils/errors';
 import type { LlmService } from '../llm';
 import { sanitizeProfile } from './extract';
 import { TOTAL_STEPS } from './steps';
 
-const tailorSchema = z.object({
-  regular: z.string().trim().min(2).max(40),
-  goals: z.array(z.string().trim().min(2).max(48)).min(1).max(4),
-  curious: z.array(z.string().trim().min(4).max(80)).min(3).max(6),
-});
+const chip = z.string().trim().min(1).max(48);
+const qSchema = z.object({ q: z.string().trim().min(6).max(90), options: z.array(chip).min(3).max(7) });
+const tailorSchema = z.object({ level: qSchema, goals: qSchema, style: qSchema, tone: qSchema });
 
-const TAILOR_PROMPT = `You help a friendly learning app get to know a new learner. They just picked what they are into.
-Write the next onboarding chips so they fit THESE interests, in a casual, friendly voice.
+const TAILOR_PROMPT = `You help a friendly learning app (CurioX) get to know a new learner through four quick chip questions, after they picked what they are into. Write ALL FOUR questions so they clearly follow from THOSE interests (name them in the question where natural) and from any answers already given. Never generic, never about a topic they did not pick.
 Reply with JSON only:
-{"regular": string, "goals": string[], "curious": string[]}
-- "regular": how someone who already follows the FIRST interest would describe themselves, max 30 characters. Example for cricket: "I watch every match".
-- "goals": 2 or 3 reasons someone learns about these interests, max 40 characters each. Example: "Follow matches like a pro".
-- "curious": 4 or 5 short questions a curious newcomer to these interests wonders about, max 60 characters each, mixing the interests. Example: "Why does dew matter in night matches?"
-No emoji. Sentence case.`;
+{"level": {"q": string, "options": [4 strings]}, "goals": {"q": string, "options": [5 strings]}, "style": {"q": string, "options": [5 strings]}, "tone": {"q": string, "options": [5 strings]}}
+- level: how much they already know, options from newcomer to expert in the words of that world. Cricket: "Just curious", "I know the basics", "I watch every match", "I could commentate". Several interests: cover them together ("…about cricket and space").
+- goals: why someone with these interests learns, mixing the interests; if a level is known, fit it (an expert is not "learning the basics").
+- style: how explanations should be built for these interests and that level ("Match examples", "Step by step", "Numbers and charts", "Analogies", "Short and blunt"…).
+- tone: how CurioX should sound, fitting these interests and goals ("Like a commentator", "Calm and clear", "Playful", "Like a coach"…), always including one of: Friendly, Casual, Playful.
+Questions max 80 characters, options max 36 characters, sentence case, no emoji, no duplicates, no numbering.`;
 
-const known = new Set<string>(INTEREST_OPTIONS);
-
-export async function tailor(interests: string[], llm: LlmService): Promise<TailorResponse> {
-  const questions = tailorQuestions(interests);
-  // The built-in banks already fit the ten suggested interests. A model only helps with ones the reader typed.
-  if (interests.every((i) => known.has(i))) return { questions, provider: 'demo' };
-
+/** Questions 2 to 5 for these interests, written by the model; the built-in questions if it cannot. */
+export async function tailor(interests: string[], llm: LlmService, answers: { level?: string[]; goals?: string[]; style?: string[] } = {}): Promise<TailorResponse> {
+  const fallback = tailorQuestions(interests);
+  const given = (['level', 'goals', 'style'] as const).filter((k) => answers[k]?.length).map((k) => `${k}: ${answers[k]!.join(', ')}`);
+  const content = [`Interests, most important first: ${interests.join(', ')}`, given.length ? `Answers so far: ${given.join('; ')}` : ''].filter(Boolean).join('\n');
   const { data, provider } = await llm.completeJson(
-    {
-      system: TAILOR_PROMPT,
-      messages: [{ role: 'user', content: `Interests, most important first: ${interests.join(', ')}` }],
-      temperature: 0.7,
-      maxOutputTokens: 900,
-      timeoutMs: 5000,
-      attempts: 1,
-    },
+    { system: TAILOR_PROMPT, messages: [{ role: 'user', content }], temperature: 0.7, maxOutputTokens: 900, timeoutMs: 8000, attempts: 1 },
     tailorSchema.nullable(),
     () => null,
   );
-  if (!data) return { questions, provider: 'demo' };
-
-  const [level, goals] = questions;
-  level!.options[2] = data.regular;
-  goals!.options = [...new Set([goals!.options[0]!, ...data.goals, ...goals!.options.slice(1)])].slice(0, 6);
+  if (!data) return { questions: fallback, provider: 'demo' };
+  const dedupe = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))];
+  const questions = fallback.map((fq) => {
+    const written = data[fq.key as 'level' | 'goals' | 'style' | 'tone'];
+    const options = dedupe(written.options);
+    return options.length >= 3 ? { ...fq, q: written.q, options } : fq;
+  });
   return { questions, provider };
 }
 

@@ -1,5 +1,5 @@
-// Welcome, then six chip questions. Questions 2 to 6 follow the interests picked in question 1:
-// tailored on the phone straight away, then refined by the server for anything it does not know.
+// Welcome, then five chip questions. Questions 2 to 5 follow the interests picked in question 1 and
+// every answer since: tailored on the phone straight away, then rewritten by the server's model.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,24 +49,29 @@ export function useOnboardFlow(initial?: ReaderCard) {
   const questionAt = (n: number) => (n >= 1 && n <= STEPS ? [interestsQuestion(), ...tailoredRef.current][n - 1]! : null);
   const q = questionAt(step);
 
-  const retailor = (interests: string[]) => {
-    const key = interests.join('|');
+  /** Ask the server to write the questions not yet reached, for these interests and answers. */
+  const retailor = (interests: string[], answers: ReaderCard, interestsChanged: boolean) => {
+    if (interestsChanged) {
+      const old = tailoredRef.current;
+      const local = tailorQuestions(interests);
+      tailoredRef.current = local;
+      setTailored(local);
+      // Keep answers that still make sense: anything still offered, or typed by the reader.
+      const next = { ...ansRef.current };
+      for (const lq of local) {
+        const was = old.find((x) => x.key === lq.key)?.options ?? [];
+        next[lq.key] = next[lq.key].filter((v) => lq.options.includes(v) || !was.includes(v));
+      }
+      setAns(next);
+      answers = next;
+    }
+    if (!interests.length) return;
+    const given = { level: answers.level, goals: answers.goals, style: answers.style };
+    const key = JSON.stringify([interests, given]);
     if (key === tailorFor.current) return;
     tailorFor.current = key;
-    const old = tailoredRef.current;
-    const local = tailorQuestions(interests);
-    tailoredRef.current = local;
-    setTailored(local);
-    // Keep answers that still make sense: anything still offered, or typed by the reader.
-    const next = { ...ansRef.current };
-    for (const lq of local) {
-      const was = old.find((x) => x.key === lq.key)?.options ?? [];
-      next[lq.key] = next[lq.key].filter((v) => lq.options.includes(v) || !was.includes(v));
-    }
-    setAns(next);
-    if (!interests.length) return;
     api
-      .tailor(interests)
+      .tailor(interests, given)
       .then((res) => {
         if (tailorFor.current !== key) return;
         // Only replace questions the reader has not reached yet.
@@ -87,16 +92,18 @@ export function useOnboardFlow(initial?: ReaderCard) {
     const cur = questionAt(stepRef.current);
     if (!cur) return go(stepRef.current + 1);
     const values = withDraft(cur, ansRef.current[cur.key], draftRef.current);
-    setAns({ ...ansRef.current, [cur.key]: values });
-    if (cur.key === 'interests') retailor(values);
+    const answers = { ...ansRef.current, [cur.key]: values };
+    setAns(answers);
+    retailor(answers.interests, answers, cur.key === 'interests');
     go(stepRef.current + 1);
   };
 
   const skip = () => {
     const cur = questionAt(stepRef.current);
     if (!cur) return go(stepRef.current + 1);
-    setAns({ ...ansRef.current, [cur.key]: [] });
-    if (cur.key === 'interests') retailor([]);
+    const answers = { ...ansRef.current, [cur.key]: [] };
+    setAns(answers);
+    retailor(answers.interests, answers, cur.key === 'interests');
     go(stepRef.current + 1);
   };
 

@@ -12,7 +12,7 @@ export function onboardingRouter(services: Services): Router {
   // POST /api/onboarding/tailor: questions 2 to 6 for the interests picked in question 1.
   router.post('/tailor', quotaLimiter(20), async (req, res) => {
     const body = tailorRequestSchema.parse(req.body ?? {});
-    res.json(await tailor(body.interests, services.llm));
+    res.json(await tailor(body.interests, services.llm, body.answers ?? {}));
   });
 
   // POST /api/onboarding/complete: save the finished reader card as the profile.

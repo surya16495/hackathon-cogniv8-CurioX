@@ -69,12 +69,15 @@ Two kinds, both on the phone (nothing is drawn inside the app):
 - **Today's top update**, posted by the app when the issue loads. Works in the APK and in Expo Go on iPhone. Expo Go on Android cannot show notifications (the module is removed there since SDK 53), so the app skips it there.
 - **Updates on what the reader follows**, sent by the server through Expo's push service: every `PUSH_INTERVAL_MIN` minutes (180 by default) it searches for fresh news on each registered reader's interests, adds a story to their issue and pushes "New in Cricket · <headline>". Tapping it opens the story. The profile page has "Check my topics now" to trigger it on the spot, which is handy in a demo.
 
-For push to reach a phone, the app must send its Expo push token, which needs the EAS project id in `app.json` (step 4 writes it) and, on Android builds, Firebase Cloud Messaging credentials:
+For push to reach an Android phone, Expo needs Firebase Cloud Messaging (FCM) behind it, and the app needs the EAS project id in `app.json` (step 4 wrote it). Three things from Firebase, then one rebuild:
 
-1. https://console.firebase.google.com → Add project (any name) → Project settings → **Cloud Messaging**.
-2. Service accounts → **Generate new private key** → download the JSON.
-3. https://expo.dev → your project → **Credentials** → Android → **FCM V1 service account key** → upload that JSON.
-4. Rebuild the APK (step 4). iPhone builds need an Apple Developer account for push, so iPhones get the local notification only.
+1. **Firebase project.** https://console.firebase.google.com → **Create a project** (name it CurioX; Google Analytics can stay off) → Continue.
+2. **Android app + google-services.json.** On the project overview click the **Android** icon → Android package name `com.cogniv8.curiox` (must match `android.package` in `mobile/app.json`) → Register app → **Download google-services.json** → save it as `mobile/google-services.json`. Skip the SDK steps Firebase shows next. Then add to `mobile/app.json` under `"android"`: `"googleServicesFile": "./google-services.json"` and commit both (the file has no secrets, only project identifiers).
+3. **Service-account key for Expo.** Firebase → gear icon → **Project settings** → **Service accounts** tab → **Generate new private key** → Generate. A JSON file downloads. Keep it private; never commit it.
+4. **Give the key to Expo.** https://expo.dev → your account → project **curiox** → **Credentials** (left menu) → **Android** → the application identifier `com.cogniv8.curiox` → **FCM V1 service account key** → **Add a service account key** → upload the JSON from step 3 → Save.
+5. **Rebuild**: `cd mobile && npx eas-cli@latest build --platform android --profile preview`, install the new APK, open it, allow notifications when asked, then on the profile page under Updates tap **Check my topics now**. `GET /api/push` on the server shows one phone registered.
+
+iPhone builds need an Apple Developer account for push, so iPhones get the local notification only.
 
 Without FCM the app still runs; `GET /api/push` just stays at 0 phones.
 

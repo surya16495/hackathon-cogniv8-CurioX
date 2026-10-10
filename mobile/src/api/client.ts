@@ -148,7 +148,7 @@ export const api = {
   deletePin: (id: string) => request<void>('DELETE', `/api/pins/${encodeURIComponent(id)}`),
 
   // The zine: reader card, issues, decks, talk.
-  tailor: (interests: string[], signal?: AbortSignal) => request<TailorResponse>('POST', '/api/onboarding/tailor', { interests }, signal),
+  tailor: (interests: string[], answers?: { level?: string[]; goals?: string[]; style?: string[] }, signal?: AbortSignal) => request<TailorResponse>('POST', '/api/onboarding/tailor', { interests, ...(answers ? { answers } : {}) }, signal),
   completeOnboarding: (reader: ReaderCard) => request<ProfileResponse>('POST', '/api/onboarding/complete', { reader }),
   today: (date: string, signal?: AbortSignal) => request<TodayResponse>('GET', `/api/issues/today?date=${date}`, undefined, signal),
   discardToday: (date: string) => request<void>('DELETE', `/api/issues/today?date=${date}`),

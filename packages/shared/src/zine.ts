@@ -32,7 +32,14 @@ export const readerCardSchema = z.object({
 });
 
 /** POST /api/onboarding/tailor: questions 2 to 6, shaped by the interests picked in question 1. */
-export const tailorRequestSchema = z.object({ interests: z.array(chip).min(1).max(12) }).strict();
+export const tailorRequestSchema = z
+  .object({
+    interests: z.array(chip).min(1).max(12),
+    /** Answers given so far, so later questions follow from them too. */
+    answers: z.object({ level: z.array(chip).max(4).optional(), goals: z.array(chip).max(8).optional(), style: z.array(chip).max(8).optional() }).strict().optional(),
+  })
+  .strict();
+export type TailorRequest = z.infer<typeof tailorRequestSchema>;
 export interface TailorResponse {
   questions: ReaderQuestion[];
   provider: Provider;

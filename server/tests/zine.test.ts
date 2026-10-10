@@ -57,7 +57,7 @@ function zineModel(overrides: Partial<Record<'lead' | 'stories' | 'talk' | 'open
       if (s.includes('"points"')) return pick('talk', { points: [{ h: 'Short answer', say: 'It is all about grip.' }, { h: 'Why', say: 'Wet balls slip.' }], topic: 'dew in cricket', done: false });
       if (s.includes('verdict')) return pick('teach', { verdict: 'got_it', feedback: 'Nailed it.', add: 'mention the toss.' });
       if (s.includes('adjacent topics')) return pick('related', { topics: [{ topic: 'Sports science', because: 'Cricket' }, { topic: 'Rocket engines', because: 'Space' }] });
-      if (s.includes('onboarding chips')) return pick('tailor', { regular: 'I throw pots weekly', goals: ['Sell my pots'], curious: ['Why do pots crack?', 'What is a glaze?', 'Which clay is best?'] });
+      if (s.includes('four quick chip questions')) return pick('tailor', { level: { q: 'How much do you know about pottery?', options: ['Just curious', 'I know the basics', 'I throw pots weekly', 'I could teach a class'] }, goals: { q: 'What are you learning pottery for?', options: ['Sell my pots', 'Make gifts', 'Pure curiosity'] }, style: { q: 'How should I explain pottery?', options: ['Step by step', 'Studio examples', 'Pictures'] }, tone: { q: 'How should I sound?', options: ['Friendly', 'Like a studio mate', 'Calm'] } });
       if (s.includes('Turn this conversation')) return pick('chatdeck', { title: 'Tides', art: 'wave', cards: [{ h: 'Moon pulls', body: 'The moon pulls the sea.', art: 'moon' }, { h: 'Twice a day', body: 'Two bulges.', art: 'wave' }], teach: lead.teach, quiz: [] });
       return '{"needsSearch":false,"query":""}';
     },
@@ -73,28 +73,24 @@ const news = (topic: string) => [
 ];
 
 describe('onboarding: reader card', () => {
-  it('tailors questions to the picked interests without a model call for known ones', async () => {
+  it('has the model write every question for the picked interests and answers, and falls back without one', async () => {
     const model = zineModel();
     const { app } = makeApp({ providers: [model] });
-    const res = await client(app).post('/api/onboarding/tailor').send({ interests: ['Cricket'] });
+    const res = await client(app).post('/api/onboarding/tailor').send({ interests: ['Pottery'], answers: { level: ['I know the basics'] } });
     expect(res.status).toBe(200);
-    expect(res.body.questions.map((q: { key: string }) => q.key)).toEqual(['level', 'goals', 'style', 'tone']);
-    expect(res.body.questions[0].q).toBe('How much do you already know about cricket?');
-    expect(model.completeCalls).toHaveLength(0);
-  });
-
-  it('asks the model for interests it does not know, and falls back when it fails', async () => {
-    const model = zineModel();
-    const { app } = makeApp({ providers: [model] });
-    const res = await client(app).post('/api/onboarding/tailor').send({ interests: ['Pottery'] });
     expect(res.body.provider).toBe('groq');
+    expect(res.body.questions.map((q: { key: string }) => q.key)).toEqual(['level', 'goals', 'style', 'tone']);
+    expect(res.body.questions[0].q).toBe('How much do you know about pottery?');
     expect(res.body.questions[0].options[2]).toBe('I throw pots weekly');
     expect(res.body.questions[1].options).toContain('Sell my pots');
+    expect(res.body.questions[3].options).toContain('Like a studio mate');
+    expect(model.completeCalls[0]!.messages[0]!.content).toContain('level: I know the basics');
 
-    const broken = makeApp({ providers: [zineModel({ tailor: { regular: '' } })] });
-    const res2 = await client(broken.app).post('/api/onboarding/tailor').send({ interests: ['Pottery'] });
+    const broken = makeApp({ providers: [zineModel({ tailor: { level: {} } })] });
+    const res2 = await client(broken.app).post('/api/onboarding/tailor').send({ interests: ['Cricket'] });
     expect(res2.body.provider).toBe('demo');
-    expect(res2.body.questions[0].options[2]).toBe('I keep up with it');
+    expect(res2.body.questions[0].q).toBe('How much do you already know about cricket?');
+    expect(res2.body.questions[0].options[2]).toBe('I watch every match');
   });
 
   it('rejects an empty interest list', async () => {
